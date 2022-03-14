@@ -1,12 +1,10 @@
 #include "PlayerCharacter.h"
+#include "MainPlayerController.h"
 #include "MainCameraManager.h"
+#include "Kismet/KismetMathLibrary.h"
 
 APlayerCharacter::APlayerCharacter(){
  	PrimaryActorTick.bCanEverTick = true;
-
-	CameraComp = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComp"));
-	CameraComp->SetupAttachment(GetRootComponent());
-	CameraComp->bUsePawnControlRotation = false;
 
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
@@ -24,9 +22,24 @@ void APlayerCharacter::BeginPlay(){
 	AttachCamToManager();
 }
 
+void APlayerCharacter::PossessedBy(AController* NewController) {
+	Super::PossessedBy(NewController);
+
+	PlayerController = Cast<AMainPlayerController>(GetController());
+}
+
 void APlayerCharacter::Tick(float DeltaTime){
 	Super::Tick(DeltaTime);
 
+	if (IsLocallyControlled() && CameraManager && PlayerController) {
+		FRotator NRot = FRotator(CameraManager->GetActorRotation().Pitch, CameraManager->GetActorRotation().Yaw, GetController()->GetControlRotation().Roll);
+		GetController()->SetControlRotation(NRot);
+		//PlayerController->SetViewTargetWithBlend(CameraManager);	//서버에서도 진행이 되도록 수정하기...
+	}
+	if(PlayerController && CameraManager && !isDone) {
+		PlayerController->SetViewTargetWithBlend(CameraManager);
+		isDone = true;
+	}
 }
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent){
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -36,21 +49,18 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	PlayerInputComponent->BindAxis("MoveRight", this, &APlayerCharacter::MoveRight);
 }
 void APlayerCharacter::MoveForward(float Value) {
-	AddMovementInput(CameraComp->GetForwardVector(), Value);
+	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw,0.f);
+	AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), Value);
 }
 void APlayerCharacter::MoveRight(float Value) {
-	AddMovementInput(CameraComp->GetRightVector(), Value);
+	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
+	AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value);
 }
 void APlayerCharacter::AttachCamToManager() {
 	if (SpectatingViewpointClass) {
 		AMainCameraManager* TargetCamera = Cast<AMainCameraManager>(UGameplayStatics::GetActorOfClass(this, SpectatingViewpointClass));
 
 		// 액터가 있다면 뷰타겟을 변경
-		if (TargetCamera) {
-			FLatentActionInfo LatentInfo;
-			CameraComp->AttachToComponent(TargetCamera->GetSpringArm(), FAttachmentTransformRules(EAttachmentRule::KeepWorld, false));
-			LatentInfo.CallbackTarget = this;
-			UKismetSystemLibrary::MoveComponentTo(CameraComp, FVector(0.f), FRotator(0.f), false, false, 0.3f, true, EMoveComponentAction::Type::Move, LatentInfo);
-		}
+		if (TargetCamera) CameraManager = TargetCamera;
 	}
 }

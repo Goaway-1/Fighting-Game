@@ -17,6 +17,8 @@ public:
 	APlayerCharacter();
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+	virtual void PossessedBy(AController* NewController) override;
+
 #pragma endregion
 
 private:
@@ -31,5 +33,13 @@ protected:
 	TSubclassOf<AActor> SpectatingViewpointClass;		//Find MainCameraManager Class...
 
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
-	UCameraComponent* CameraComp;
+	class AMainCameraManager* CameraManager;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Components")
+	class AMainPlayerController* PlayerController;
+
+	bool isDone = false;
+
+public:
+	FORCEINLINE AMainPlayerController* GetPlayerController() {return PlayerController;}
 };

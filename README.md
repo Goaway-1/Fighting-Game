@@ -82,7 +82,7 @@
     ```
     </details>
 
-- ## <span style = "color:yellow;">메인 카메라의 이동</span>CameraLogic.png
+- ## <span style = "color:yellow;">메인 카메라의 이동</span>
   - <img src="Image/Camera(Length,Center).gif" height="300" title="Camera(Length,Center)">
   - AGameStateBase클래스를 상속받은 NarutoGameState클래스를 생성하고, SpringArm의 길이를 고정하는 로직구현
     - 매 틱마다 FindPlayers()메서드를 통해 지정한 클래스의 플레이어를 찾고 찾았다면 CalculateCamValue()메서드를 통해 추후 사용될 정보를 계산
@@ -210,3 +210,199 @@
 
 **<h3>Realization</h3>**
   - null
+
+## **Day_2**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">카메라 매니저의 설정</span>
+  - <img src="Image/MainCameraSetting.gif" height="300" title="MainCameraSetting">
+  - 기존 로직은 3D에 적합하지 않고 2D 적합하다고 판정하여 새로운 로직으로 구현 (기존 MainCameraManger클래스 재구성)
+  - 계산에 있어서는 항상 P1(Player1)을 기준으로 계산을 진행
+  - 녹색구는 ReferenceScene의 위치, 적색구는 DefaultSceneRoot의 위치를 나타냄
+
+  ___
+
+  ### 1. 카메라가 참조할 ReferenceScene 제작 및 상하 위치 조정
+  - <img src="Image/SetReferenceScene.gif" height="300" title="SetReferenceScene">
+  - <img src="Image/SetReferenceSceneX.png" height="300" title="SetReferenceSceneX">
+  - SceneComponent타입의 ReferenceScene를 제작하고, 항상 ReferenceScene를 항상 P1과 같은 __X축에__ 있도록 설정
+  - 추후 액터의 회전을 통해서 P1의 옆(좌/우)에 항상 상주하도록 설정 (위 사진에서는 녹색구가 ReferenceScene의 위치를 표현)
+  - __원리 :__
+    - CameraComp를 기준으로 어떤 플레이어가 더 가까이 위치하는지 계산하고, ReferenceScene의 X 좌표는 RootComponent의 __상대적인 좌표로 설정__
+    - P1이 카메라와 더 가까이에 있을때의 X 좌표의 수식-> [P1과 P2사이의 거리 중심 * -1.f], P2가 더 가까이 있을때의 수식은 -> [P1과 P2사이의 거리 중심]
+    - P1과 P2가 좌우로 멀어질때는 회전을 진행해야하기 때문에 P1IsForward값을 1.f(앞), -1.f(뒤)로 설정하고, 이 값을 참조하여 2번을 진행
+
+    <details><summary>C++ File</summary> 
+
+    ```c++
+    //MainCameraManager.cpp
+    void AMainCameraManager::SetReferenceScene() {
+      float P1ToCamera_Distance = (Players[0]->GetActorLocation() - CameraComp->GetComponentLocation()).Size();		
+      float P2ToCamera_Distance = (Players[1]->GetActorLocation() - CameraComp->GetComponentLocation()).Size();		
+      float P1ToP2_HalfDistance = ((Players[0]->GetActorLocation() - Players[1]->GetActorLocation()).Size()) / 2.f;		
+
+      /** 카메라와 더 가까운 플레이어에게 ReferenceScene의 X축 위치를 지정 */
+      if (P2ToCamera_Distance > P1ToCamera_Distance) {
+        //P1이 더 가까운 경우
+        ReferenceScene->SetRelativeLocation(FVector(P1ToP2_HalfDistance * -1.f, 0.f, 0.f));
+        IsForward = 1.f;
+      }
+      else {
+        ReferenceScene->SetRelativeLocation(FVector(P1ToP2_HalfDistance, 0.f, 0.f));
+        IsForward = -1.f;
+      }
+    }
+    ```
+    </details>
+
+    <details><summary>Header File</summary> 
+    
+    ```c++
+    //MainCameraManager.h
+    private:
+      //P1이 P2와 비교했는데 앞뒤에 있는지 비교 -> 앞(1)/뒤(-1)
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float IsForward;		
+
+      void SetReferenceScene();
+    ```
+    </details>
+
+  ___
+
+  ### 2. P1과 ReferenceScene의 거리에 따른 DefaultSceneRoot 회전
+  - <img src="Image/DirectionForce.png" height="200" title="DirectionForce"> <img src="Image/RotateBetweenPlayers.png" height="200" title="RotateBetweenPlayers">
+  - P1과 ReferenceScene의 거리에 따라 DefaultSceneRoot의 Yaw를 수정하는데 이는 카메라의 회전을 의미
+  - 이를 통해서 항상 ReferenceScene가 P1 좌우에 상주하도록 설정
+  - __원리 :__
+    - P1과 ReferenceScene의 사이의 거리가 MinimumRightDistance보다 커진다면 DefaultSceneRoot를 DistanceFarForce만큼 힘을 가함
+    - 힘을 가할때는 방향을 알아야하는데, 방향은 첫번째 사진처럼 상하좌우의 값을 알아야한다. 그래서 기존에 구한 P1IsForward의 값과 P1IsLeft를 사용
+      - P1IsLeft를 구하기 위해서 ReferenceScene와 방향벡터(P1과 ReferenceScene)간의 내적을 반환하여 ReferenceScene를 기준으로 P1이 좌우 어디에 위치하는지 알아낸다. 이때 왼쪽은 1, 오른쪽은 -1 (※두번째 사진 참고)
+
+    <details><summary>C++ File</summary>    
+
+    ```c++
+    //MainCameraManager.cpp
+    void AMainCameraManager::RotateDefaultScene() {
+      float P1ToReference_Length = (Players[0]->GetActorLocation() - ReferenceScene->GetComponentLocation()).Size();
+
+      //일정 거리보다 멀어지면 DefaultSceneRoot 회전
+      if (P1ToReference_Length >= MinRotDistance) {
+        //Reference와 방향백터간의 내적을 반환하여 -> Reference를 기준으로 P1의 좌우 위치 파악
+        FVector P1ToRef_DirectionVec = UKismetMathLibrary::GetDirectionUnitVector(Players[0]->GetActorLocation(), ReferenceScene->GetComponentLocation());
+        float P1ToRef_InnerVec = UKismetMathLibrary::Dot_VectorVector(ReferenceScene->GetRightVector(), P1ToRef_DirectionVec);
+        float IsLeft = UKismetMathLibrary::SelectFloat(-1.f, 1.f, (P1ToRef_InnerVec <= 0.f));		//1 is Left, -1 is Right
+
+        //거리에 따른 힘의 세기
+        float DistanceFarForce = (P1ToReference_Length - MinRotDistance) / RotationDelay;
+        float YawForce = ((IsForward * IsLeft) * DistanceFarForce) * UGameplayStatics::GetWorldDeltaSeconds(this);
+
+        DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f),false,false);
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```c++
+    //MainCameraManager.h
+    private:
+      //회전을 하게되는 최대 거리 (넘으면 회전)
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float MinRotDistance = 145.f;
+
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float RotationDelay = 4.f;
+
+     	void RotateDefaultScene();
+    ```
+    </details>
+
+  ___
+
+  ### 3. SpringArm의 길이와 각도를 조정
+  - <img src="Image/DefaultScenePos.png" height="200" title="DefaultScenePos">
+  - DefaultSceneRoot는 항상 P1과 P2의 중심에 위치하고, SpringArmComp의 길이와 각도(Pitch)를 조정
+  - __원리 :__
+    - GlobalDistanceFactor는 P1과 P2 사이의 거리를 0 ~ 1사이의 값으로 지정 (비율)
+    - 이 값을 활용하여 SpringArm의 Pitch를 지정하는데 P1과 P2가 멀어질수록 위로 회전, 또한 TargetArmLength를 지정
+      - TargetArmLength는 (P1과 P2 사이의 거리 / 2) + GlobalDistanceFactor 비율에 따른 최소, 최대 거리이다.
+
+    <details><summary>C++ File</summary>    
+
+    ```c++
+    //MainCameraManager.cpp
+    void AMainCameraManager::SetCameraPosition() {
+      //DefaultSceneRoot의 위치 지정 (P1과 P2의 중심위치)
+      FVector DefaultLocation = (Players[0]->GetActorLocation() + Players[1]->GetActorLocation()) / 2.f;
+      DefaultLocation.Z += Height;
+      DefaultSceneRoot->SetWorldLocation(DefaultLocation);
+
+      //P1과 P2사이의 거리를 0~1까지의 값으로 제한한 값을 반환
+      float P1ToP2Distance = (Players[1]->GetActorLocation() - Players[0]->GetActorLocation()).Size() / 1200.f;
+      GlobalDistanceFactor = UKismetMathLibrary::FClamp(P1ToP2Distance, 0.f, 1.f);
+
+      //거리에 따라 SpringArm의 Pitch를 최소/최대(3~5)로 조절하여 위에서 내려다 보도록 조정
+      float SpringPitch = UKismetMathLibrary::Lerp(MaxSpringArmRotation, MinSpringArmRotation, GlobalDistanceFactor) * -1.f;
+      SpringArmComp->SetRelativeRotation(FRotator(SpringPitch, 0.f, 0.f));
+
+      //SpringArm의 길이를 지정 
+      FVector P1ToP2Vector = Players[1]->GetActorLocation() - Players[0]->GetActorLocation();
+      P1ToP2Vector.Z = 0;
+      float P1ToP2CenterLength = (P1ToP2Vector / 2.f).Size(); 
+      float SpringArmLength = UKismetMathLibrary::Lerp(SpringArmBaseDistance, (SpringArmBaseDistance + SpringArmExtraDistance), GlobalDistanceFactor);
+
+      SpringArmComp->TargetArmLength = P1ToP2CenterLength + SpringArmLength;
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```c++
+    //MainCameraManager.h
+    private:
+      //SpringArm의 Pitch 최소, 최대 각도
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float MinSpringArmRotation = 3.f;
+      
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float MaxSpringArmRotation = 5.f;
+
+      //SpringArm의 최소, 최대 길이
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float SpringArmBaseDistance = 330.f;
+
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float SpringArmExtraDistance = 70.f;
+
+      //P1과 P2 사이의 거리를 0~1의 비율로 변환
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float GlobalDistanceFactor;
+
+      void SetCameraPosition();
+    ```
+    </details>
+
+  ___
+  
+  ### 4. 조작 방식 변경
+  - 기존 로직은 카메라의 방향에 따라 이동을 진행했는데, 카메라가 사라졌기 때문에 컨트롤러의 Yaw에 따른 이동
+    - 기존 로직과 느낌은 비슷하나 구현에 차이가 존재
+
+    <details><summary>C++ File</summary>    
+
+    ```c++
+    //PlayerCharacter.cpp
+    void APlayerCharacter::MoveForward(float Value) {
+      FRotator Rot = FRotator(0.f, GetControlRotation().Yaw,0.f);
+      AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), Value);
+    }
+    void APlayerCharacter::MoveRight(float Value) {
+      FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
+      AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value);
+    }
+    ```
+    </details>
+
+**<h3>Realization</h3>**
+  - 일직선 상에 있을때 자동으로 회전하는 로직 추가할 예정..
+  - 공격하는데 일정 각도가 차이날때 자동으로 회전하는 로직 추가 예정...
