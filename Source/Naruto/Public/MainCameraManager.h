@@ -68,16 +68,35 @@ private:
 	
 	//P1이 P2와 비교했는데 앞뒤에 있는지 비교 -> 앞(1)/뒤(-1)
 	UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
-	float IsForward;		
+	float IsForward;	
+	
+	//Reference기준 P1이 좌우 어디에 있는지 비교 -> 왼쪽(1), 오른쪽(-1)
+	UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+	float IsLeft;
 
 	//P1과 P2 사이의 거리를 0~1의 비율로 변환
 	UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
 	float GlobalDistanceFactor;
 
+	//New
+	UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+	float P1ToRoot_InnerVec;
+
+	float OverlapForce = -15.f;
+	bool bIsPlayersOverlap = false;
+	float MinInnerVal = 0.07;
+	float MaxOverlapInnerVal = 0.3f;
+	float MinOverlapInnerVal = 0.05f;
+
+
 	void FindAndSet();
 	void SetReferenceScene();			//항상 ReferenceScene를 항상 P1과 같은 X축에 있도록 설정
 	void RotateDefaultScene();
 	void SetCameraPosition();
+
+	//New
+	void SetViewAllPlayers();
+	void SetNonOverlap();
 
 public:
 	FORCEINLINE USpringArmComponent* GetSpringArm() {return SpringArmComp;}
