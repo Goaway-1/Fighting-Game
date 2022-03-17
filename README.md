@@ -406,3 +406,84 @@
 **<h3>Realization</h3>**
   - 일직선 상에 있을때 자동으로 회전하는 로직 추가할 예정..
   - 공격하는데 일정 각도가 차이날때 자동으로 회전하는 로직 추가 예정...
+
+## **Day_3**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">카메라 매니저 기능 추가</span>
+  - <img src="Image/OverlapHandle.gif" height="300" title="OverlapHandle">
+  - 카메라 시점을 시준으로 P1과 P2가 겹쳐저서 하나의 P가 보이지 않을때 자동을 회전하여 모두 화면상에 보이도록 설정
+  - P1과 P2 모두 움직임이 없을때만 동작하며, 내적과 거리에 따른 회전 값을 설정하여 사용
+  - SetViewAllPlayers()메서드에서는 두 P가 겹쳐있는지 판단
+    - P1에서의 DefaultScene으로의 방향벡터, 내적을 도출하여 절대값을 씌우고, 그 값이 MinOverlapInnerVal(최소값)보다 작다면 겹쳐있다고 판단
+    - 겹쳐있다면 bIsPlayersOverlap을 True로 전환하고 SetNonOverlap()메서드 실행
+  - SetNonOverlap()메서드에서는 두 P가 겹쳐지지 않도록 DefaultScene에 일정 방향으로 힘을 주어 회전 (※ 기존 회전 로직과 유사)
+    - P1과 DefaultScene의 거리 비율을 Max/MinOverRan 내의 값으로 지정하여 YawForce 연산시 사용
+    - 만약 DeActiveRange보다 내적값이 커진다면 bIsPlayersOverlap을 Flase로 전환하여 종료
+
+    <details><summary>C++ File</summary>    
+
+    ```c++
+    //MainCameraManager.cpp
+    void AMainCameraManager::FindAndSet() {
+      if (PlayerClass && Players.Num() < 2) {
+        UGameplayStatics::GetAllActorsOfClass(this, PlayerClass, Players);
+      }
+      else if (IsLocallyControlled()) {
+        SetReferenceScene();
+        RotateDefaultScene();
+        SetCameraPosition();
+        SetViewAllPlayers();
+      }
+    }
+    void AMainCameraManager::SetViewAllPlayers() {
+      //두 플레이어 모두 움직임 없을때 검사
+      if (Players[0]->GetVelocity().Size() <= 0.1f && Players[1]->GetVelocity().Size() <= 0.1f) {
+        FVector P1ToRoot_DirectionVec = UKismetMathLibrary::GetDirectionUnitVector(Players[0]->GetActorLocation(), DefaultSceneRoot->GetComponentLocation());
+        P1ToRoot_InnerVec = UKismetMathLibrary::Dot_VectorVector(DefaultSceneRoot->GetRightVector(), P1ToRoot_DirectionVec);
+
+        float AbsInnerVal = FMath::Abs(P1ToRoot_InnerVec);
+        if (AbsInnerVal < MinOverlapInnerVal && !bIsPlayersOverlap) bIsPlayersOverlap = true;
+
+        if (bIsPlayersOverlap) SetNonOverlap();
+      }
+      else bIsPlayersOverlap = false;
+    }
+    void AMainCameraManager::SetNonOverlap() {
+      float P1ToRootFactor = UKismetMathLibrary::FClamp((Players[0]->GetActorLocation() - DefaultSceneRoot->GetComponentLocation()).Size() / 800.f, 0.f, 1.f);
+      float DeActiveRange = UKismetMathLibrary::Lerp(MaxOverlapInnerVal, MinOverlapInnerVal, P1ToRootFactor);
+
+      float YawForce = ((IsForward * IsLeft) * (OverlapForce * (DeActiveRange * 7))) * UGameplayStatics::GetWorldDeltaSeconds(this);
+      DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
+
+      //일정 내적값을 초과한다면 종료
+      if (FMath::Abs(P1ToRoot_InnerVec) >= DeActiveRange)  bIsPlayersOverlap = false;
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>    
+
+    ```c++
+    //MainCameraManager.h
+    private:
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float P1ToRoot_InnerVec;
+
+      //Overlap시 회전할 힘
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float OverlapForce = -15.f;
+
+      //Overlap을 판정
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      bool bIsPlayersOverlap = false;
+
+      //종료의 최소, 최대 기준 값을 결정하기 위한 내적 값
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+      float MaxOverlapInnerVal = 0.5f;
+
+      UPROPERTY(VisibleAnywhere, Category = "Environment_Variable")
+	float MinOverlapInnerVal = 0.07f;
+
+      void SetViewAllPlayers();			//플레이어간 Overlap을 판정
+      void SetNonOverlap();				//Overlap시 카메라를 회전하여 겹치지 않도록 수정
+    ```
+    </details>

@@ -104,22 +104,25 @@ void AMainCameraManager::SetCameraPosition() {
 	SpringArmComp->TargetArmLength = P1ToP2CenterLength + SpringArmLength;
 }
 void AMainCameraManager::SetViewAllPlayers() {
-	if (Players[0]->GetVelocity().Size() <= 0.1f && Players[1]->GetVelocity().Size() <= 0.1f && (Players[0]->GetActorLocation() - DefaultSceneRoot->GetComponentLocation()).Size() >= 250.f) {
+	//두 플레이어 모두 움직임 없을때 검사
+	if (Players[0]->GetVelocity().Size() <= 0.1f && Players[1]->GetVelocity().Size() <= 0.1f) {
 		FVector P1ToRoot_DirectionVec = UKismetMathLibrary::GetDirectionUnitVector(Players[0]->GetActorLocation(), DefaultSceneRoot->GetComponentLocation());
 		P1ToRoot_InnerVec = UKismetMathLibrary::Dot_VectorVector(DefaultSceneRoot->GetRightVector(), P1ToRoot_DirectionVec);
 
 		float AbsInnerVal = FMath::Abs(P1ToRoot_InnerVec);
-		if (AbsInnerVal < MinInnerVal && !bIsPlayersOverlap) bIsPlayersOverlap = true;
+		if (AbsInnerVal < MinOverlapInnerVal && !bIsPlayersOverlap) bIsPlayersOverlap = true;
 
 		if (bIsPlayersOverlap) SetNonOverlap();
 	}
 	else bIsPlayersOverlap = false;
 }
 void AMainCameraManager::SetNonOverlap() {
-	float YawForce = ((IsForward * IsLeft) * OverlapForce) * UGameplayStatics::GetWorldDeltaSeconds(this);
+	float P1ToRootFactor = UKismetMathLibrary::FClamp((Players[0]->GetActorLocation() - DefaultSceneRoot->GetComponentLocation()).Size() / 800.f, 0.f, 1.f);
+	float DeActiveRange = UKismetMathLibrary::Lerp(MaxOverlapInnerVal, MinOverlapInnerVal, P1ToRootFactor);	//내적값의 최소, 최대
+
+	float YawForce = ((IsForward * IsLeft) * (OverlapForce * (DeActiveRange * 7))) * UGameplayStatics::GetWorldDeltaSeconds(this);
 	DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
 
-	float P1ToRootFactor = UKismetMathLibrary::FClamp((Players[0]->GetActorLocation() - DefaultSceneRoot->GetComponentLocation()).Size() / 800.f, 0.f, 1.f);
-	float DeActiveRange = UKismetMathLibrary::Lerp(MaxOverlapInnerVal, MinOverlapInnerVal, P1ToRootFactor);
-	if(FMath::Abs(P1ToRoot_InnerVec) >= DeActiveRange)  bIsPlayersOverlap = false;
+	//일정 내적값을 초과한다면 종료
+	if (FMath::Abs(P1ToRoot_InnerVec) >= DeActiveRange)  bIsPlayersOverlap = false;
 }
