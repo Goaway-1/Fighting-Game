@@ -492,7 +492,8 @@
 > **<h3>Today Dev Story</h3>**
 - ## <span style = "color:yellow;">카메라 매니저 2D 타입 추가</span>
   - <img src="Image/2DPlusRotate.gif" height="300" title="TekkenStyle"> <img src="Image/Only2D.gif" height="300" title="StreetFighterStyle">
-  - ### <span style = "color:yellow;"> [좌 : TekkenStyle (회전O)] [우 : StreetFighterStyle (회전X)] </span> 
+  - <img src="Image/2DRotateBetweenPlayers.png" height="300" title="2DLogic">
+  - ### <span style = "color:yellow;"> [상 : TekkenStyle (회전O)] [하 : StreetFighterStyle (회전X)] </span> 
   - 이 형식은 철권시리즈와 같이 앞뒤로만 움직이되, 상하로도 가끔 움직이는 플레이에 적합 (회전 고정 가능)
     - 기존 방식은 3D 게임에서 상하좌우 움직임이 자유로운 플레이에 적합 (bIsTekkenStyle의 값에 따라 구분)
     - bFixRotate를 true로 한다면 스트리트파이터 형식의 카메라이고, false로 한다면 철권 형식의 카메라.
