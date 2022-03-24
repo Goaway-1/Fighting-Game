@@ -487,3 +487,95 @@
       void SetNonOverlap();				//Overlap시 카메라를 회전하여 겹치지 않도록 수정
     ```
     </details>
+
+## **Day_4**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">카메라 매니저 2D 타입 추가</span>
+  - <img src="Image/2DPlusRotate.gif" height="300" title="TekkenStyle"> <img src="Image/Only2D.gif" height="300" title="StreetFighterStyle">
+  - ### <span style = "color:yellow;"> [좌 : TekkenStyle (회전O)] [우 : StreetFighterStyle (회전X)] </span> 
+  - 이 형식은 철권시리즈와 같이 앞뒤로만 움직이되, 상하로도 가끔 움직이는 플레이에 적합 (회전 고정 가능)
+    - 기존 방식은 3D 게임에서 상하좌우 움직임이 자유로운 플레이에 적합 (bIsTekkenStyle의 값에 따라 구분)
+    - bFixRotate를 true로 한다면 스트리트파이터 형식의 카메라이고, false로 한다면 철권 형식의 카메라.
+  - IsLeft, IsForward, P1ToRoot_InnerVec와 같이 모든 방식에서 사용되는 변수들의 값은 SetP1RelativeVal()메서드에서 종합적으로 계산.
+  - 기존 RotateDefaultScene()메서드에서는 RootScene의 회전을 담당하는데 2D 또한 이 메서드에서 담당하여 회전
+    - 회전 로직은 3D와 다르게 P1과 RootScene의 내적의 절대값이 직각을 의미하는 1.f -> 0.98f보다 작다면 회전
+    - 회전 시 "(0.98.f - 현재 내적값) * 특정 힘 크기"의 계산 값만큼의 힘을 주어 회전을 진행.
+
+    <details><summary>C++ File</summary>    
+
+    ```c++
+    //MainCameraManager.cpp
+    void AMainCameraManager::FindAndSet() {
+      if (PlayerClass && Players.Num() < 2) {
+        UGameplayStatics::GetAllActorsOfClass(this, PlayerClass, Players);
+      }
+      else if (IsLocallyControlled()) {
+        SetCameraPosition();
+        SetP1RelativeVal();
+        if (!bIsTekkenStyle || (!bFixRotate && bIsTekkenStyle)) RotateDefaultScene();
+        if (!bIsTekkenStyle) {
+          SetReferenceScene();
+          SetViewAllPlayers();
+          DrawDebugSphere(GetWorld(), ReferenceScene->GetComponentLocation(), 10.f, 10.f, FColor::Green, false, 0.1f);
+        }
+        DrawDebugSphere(GetWorld(), DefaultSceneRoot->GetComponentLocation(), 10.f, 10.f, FColor::Red, false, 0.1f);
+      }
+    }
+    void AMainCameraManager::RotateDefaultScene() {
+      if (bIsTekkenStyle) {
+        float AbsInnerVal = FMath::Abs(P1ToRoot_InnerVec);
+
+        if (AbsInnerVal <= 0.98f) {
+          float force = (0.98f - AbsInnerVal) * TekkenRotateForce;
+          float YawForce = ((-IsForward * IsLeft) * force) * UGameplayStatics::GetWorldDeltaSeconds(this);
+          DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
+        }
+      }
+      else {
+        float P1ToReference_Length = (Players[0]->GetActorLocation() - ReferenceScene->GetComponentLocation()).Size();
+
+        if (P1ToReference_Length >= MinRotDistance) {
+          /** 거리에 따른 힘의 세기 */
+          float Force = (P1ToReference_Length - MinRotDistance) / RotationDelay;
+          float YawForce = ((IsForward * IsLeft) * Force) * UGameplayStatics::GetWorldDeltaSeconds(this);
+          DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
+        }
+      }
+    }
+    void AMainCameraManager::SetP1RelativeVal() {
+      FVector P1ToRoot_DirectionVec = UKismetMathLibrary::GetDirectionUnitVector(Players[0]->GetActorLocation(), DefaultSceneRoot->GetComponentLocation());
+      P1ToRoot_InnerVec = UKismetMathLibrary::Dot_VectorVector(DefaultSceneRoot->GetRightVector(), P1ToRoot_DirectionVec);
+
+      /** Reference와 방향백터간의 내적을 반환하여->Reference를 기준으로 P1의 좌우 위치 파악 */
+      FVector P1ToRef_DirectionVec = UKismetMathLibrary::GetDirectionUnitVector(Players[0]->GetActorLocation(), DefaultSceneRoot->GetComponentLocation());
+      float P1ToRef_InnerVec = UKismetMathLibrary::Dot_VectorVector(DefaultSceneRoot->GetRightVector(), P1ToRef_DirectionVec);
+      IsLeft = (P1ToRef_InnerVec <= 0.f) ? -1.f : 1.f;		//1 is Left, -1 is Right
+
+      float P1ToCamera_Distance = (Players[0]->GetActorLocation() - CameraComp->GetComponentLocation()).Size();
+      float P2ToCamera_Distance = (Players[1]->GetActorLocation() - CameraComp->GetComponentLocation()).Size();
+      float P1ToP2_HalfDistance = ((Players[0]->GetActorLocation() - Players[1]->GetActorLocation()).Size()) / 2.f;
+
+      /** 카메라와 더 가까운 플레이어에게 ReferenceScene의 X축 위치를 지정 */
+      IsForward = (P2ToCamera_Distance > P1ToCamera_Distance) ? 1.f : -1.f;
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>    
+
+    ```c++
+    //MainCameraManager.h
+    protected:
+    	//철권 또는 나루토 스타일의 카메라 형식을 지정
+      UPROPERTY(EditDefaultsOnly, Category = "Environment_Variable")
+      bool bIsTekkenStyle = true;		
+
+	    //RootScene 회전 고정 여부
+      UPROPERTY(EditDefaultsOnly, Category = "Environment_Variable")
+      bool bFixRotate = false;
+
+    private:
+      float TekkenRotateForce = 200.f;				//Tekken타입일때 회전 힘
+
+	    void SetP1RelativeVal();			//P1가 P2에 대한 상대적인 위치를 결정 (앞,뒤 등....)
+    ```
+    </details>

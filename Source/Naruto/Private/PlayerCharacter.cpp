@@ -2,6 +2,7 @@
 #include "MainPlayerController.h"
 #include "MainCameraManager.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Net/UnrealNetwork.h"
 
 APlayerCharacter::APlayerCharacter(){
  	PrimaryActorTick.bCanEverTick = true;
@@ -26,6 +27,7 @@ void APlayerCharacter::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
 
 	PlayerController = Cast<AMainPlayerController>(GetController());
+
 }
 
 void APlayerCharacter::Tick(float DeltaTime){
@@ -35,11 +37,9 @@ void APlayerCharacter::Tick(float DeltaTime){
 	if (IsLocallyControlled() && CameraManager && PlayerController) {
 		FRotator NRot = FRotator(CameraManager->GetActorRotation().Pitch, CameraManager->GetActorRotation().Yaw, GetController()->GetControlRotation().Roll);
 		GetController()->SetControlRotation(NRot);
-		//PlayerController->SetViewTargetWithBlend(CameraManager);	//서버에서도 진행이 되도록 수정하기...
-
-		//UE_LOG(LogTemp, Warning, TEXT("Speed : %f"), GetVelocity());
 	}
-	if(PlayerController && CameraManager && !isDone) {
+
+	if(IsLocallyControlled() && PlayerController && CameraManager && !isDone) {
 		PlayerController->SetViewTargetWithBlend(CameraManager);
 		isDone = true;
 	}
