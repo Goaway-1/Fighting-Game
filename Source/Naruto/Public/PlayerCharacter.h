@@ -28,6 +28,8 @@ private:
 
 	/** Attach Camera To Manager */
 	void AttachCamToManager();
+
+	virtual void Jump() override;
 protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Components")
 	TSubclassOf<AActor> SpectatingViewpointClass;		//Find MainCameraManager Class...

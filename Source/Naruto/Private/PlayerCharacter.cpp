@@ -15,21 +15,17 @@ APlayerCharacter::APlayerCharacter(){
 	GetCharacterMovement()->bOrientRotationToMovement = true;	
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 2000.f, 0.f);
 }
-
 void APlayerCharacter::BeginPlay(){
 	Super::BeginPlay();
 
 	/** 카메라를 부착하기 위한 과정 */
 	AttachCamToManager();
 }
-
 void APlayerCharacter::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
 
 	PlayerController = Cast<AMainPlayerController>(GetController());
-
 }
-
 void APlayerCharacter::Tick(float DeltaTime){
 	Super::Tick(DeltaTime);
 
@@ -50,6 +46,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 	/** Move */
 	PlayerInputComponent->BindAxis("MoveForward", this, &APlayerCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &APlayerCharacter::MoveRight);
+	PlayerInputComponent->BindAction("Jump", EInputEvent::IE_Pressed, this, &APlayerCharacter::Jump);
 }
 void APlayerCharacter::MoveForward(float Value) {
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw,0.f);
@@ -66,4 +63,8 @@ void APlayerCharacter::AttachCamToManager() {
 		// 액터가 있다면 뷰타겟을 변경
 		if (TargetCamera) CameraManager = TargetCamera;
 	}
+}
+void APlayerCharacter::Jump() {
+	Super::Jump();
+
 }

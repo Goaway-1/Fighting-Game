@@ -488,11 +488,14 @@
     ```
     </details>
 
+**<h3>Realization</h3>**
+  - null
+
 ## **Day_4**
 > **<h3>Today Dev Story</h3>**
 - ## <span style = "color:yellow;">카메라 매니저 2D 타입 추가</span>
   - <img src="Image/2DPlusRotate.gif" height="300" title="TekkenStyle"> <img src="Image/Only2D.gif" height="300" title="StreetFighterStyle">
-  - <img src="Image/2DRotateBetweenPlayers.png" height="300" title="2DLogic">
+  - <img src="Image/2DRotateBetweenPlayers.png" height="200" title="2DLogic">
   - ### <span style = "color:yellow;"> [상 : TekkenStyle (회전O)] [하 : StreetFighterStyle (회전X)] </span> 
   - 이 형식은 철권시리즈와 같이 앞뒤로만 움직이되, 상하로도 가끔 움직이는 플레이에 적합 (회전 고정 가능)
     - 기존 방식은 3D 게임에서 상하좌우 움직임이 자유로운 플레이에 적합 (bIsTekkenStyle의 값에 따라 구분)
@@ -578,5 +581,49 @@
       float TekkenRotateForce = 200.f;				//Tekken타입일때 회전 힘
 
 	    void SetP1RelativeVal();			//P1가 P2에 대한 상대적인 위치를 결정 (앞,뒤 등....)
+    ```
+    </details>
+
+**<h3>Realization</h3>**
+  - null
+
+## **Day_5**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">애니메이션 구현</span>
+  - <img src="Image/" height="300" title="">
+  - 
+
+    <details><summary>C++ File</summary>    
+
+    ```c++
+    //MainCameraManager.cpp
+    #include "PlayerCharacter.h"
+    void UPlayerAnimInstance::NativeInitializeAnimation() {
+      if (!Player) Player = Cast<APlayerCharacter>(TryGetPawnOwner());
+    }
+    void UPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds) {
+      Super::NativeUpdateAnimation(DeltaSeconds);
+
+      if (Player) {
+        FVector Speed = Player->GetVelocity();
+        FVector LateralSpeed = FVector(Speed.X, Speed.Y, 0.f);
+        MovementSpeed = LateralSpeed.Size();
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>    
+
+    ```c++
+    //MainCameraManager.h
+    public:
+      virtual void NativeInitializeAnimation() override;	
+
+      virtual void NativeUpdateAnimation(float DeltaSeconds) override;
+    private:
+      class APlayerCharacter* Player;
+
+      UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement", Meta = (AllowPrivateAccess = true))
+      float MovementSpeed;
     ```
     </details>
