@@ -5,10 +5,10 @@ using System.Collections.Generic;
 
 public class NarutoEditorTarget : TargetRules
 {
-	public NarutoEditorTarget( TargetInfo Target) : base(Target)
+	public NarutoEditorTarget(TargetInfo Target) : base(Target)
 	{
 		Type = TargetType.Editor;
 		DefaultBuildSettings = BuildSettingsVersion.V2;
-		ExtraModuleNames.AddRange( new string[] { "Naruto" } );
+		ExtraModuleNames.Add("Naruto");
 	}
 }
