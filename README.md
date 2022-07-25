@@ -91,7 +91,6 @@
   - 메인카메라가 Server모드에서만 적용되는 문제 존재, 수정 필요..!
   - 반응 속도가 느리다는 문제 (쉽게 해결 가능)
 
-
 ## **Day_2**
 > **<h3>Today Dev Story</h3>**
 - ## <span style = "color:yellow;">애니메이션</span>
@@ -125,17 +124,129 @@
     ```
     </details>
 
+## **Day_3**
+> **<h3>Today Dev Story</h3>**
 - ## <span style = "color:yellow;">더블 점프_2</span>
-  - <img src="Image/.gif" height="300" title="">
+  - <img src="Image/DoubleJump_2.gif" height="300" title="DoubleJump_2">
+  - 방향키가 입력되어 있다면 방향으로의 점프를 하기 위해서 LaunchCharacter()메서드를 사용하였고, 현재 눌려있는 방향키를 표시하기 위해서 Enum 클래스 사용. 
+    - 이는 현재 굳이 필요없지만 추후 공격의 콤보에도 사용하기에 미리 제작
+  - 서버와 클라이언트 모두 LaunchCharacter()메서드를 처리하기 위해서 Server 함수 생성하여 해결
+
+    <details><summary>C++ File</summary> 
+
+    ```c++
+    ANPlayer::ANPlayer() {
+      ...
+    	/* Jump Setting */
+	    GetCharacterMovement()->JumpZVelocity = 1400.f;
+
+      /* Impressed Keys */
+      SetKeyUpDown(EKeyUpDown::EKUD_Default);
+      SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
+    }
+    void ANPlayer::MoveForward(float Value) {
+      FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
+      AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), Value);
+
+      if (Value > 0) SetKeyUpDown(EKeyUpDown::EKUD_Up);
+      else if (Value < 0) SetKeyUpDown(EKeyUpDown::EKUD_Down);
+      else SetKeyUpDown(EKeyUpDown::EKUD_Default);
+    }
+    void ANPlayer::MoveRight(float Value) {
+      FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
+      AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value);
+
+      if (Value > 0) SetKeyLeftRight(EKeyLeftRight::EKLR_Right);
+      else if (Value < 0) SetKeyLeftRight(EKeyLeftRight::EKLR_Left);
+      else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
+    }
+    void ANPlayer::Jump() {
+      if(!HasAuthority()) {
+        ServerJump();
+        return;
+      }
+
+      if (JumpCurrentCount < 2) {
+        FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
+        ForceVec.Z = 1400.f;
+        LaunchCharacter(ForceVec, false, false);
+        JumpCurrentCount++;
+      }
+    }
+    void ANPlayer::ServerJump_Implementation() {
+      Jump();
+    }
+    bool ANPlayer::ServerJump_Validate() {
+      return true;
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+
+    ```c++
+    UENUM(BlueprintType)
+    enum class EKeyUpDown : uint8 {
+      EKUD_Up				UMETA(DisplayName = "Up"),
+      EKUD_Down			UMETA(DisplayName = "Down"),
+
+      EKUD_Default		UMETA(DisplayName = "Default")
+    };
+
+    UENUM(BlueprintType)
+    enum class EKeyLeftRight : uint8 {
+      EKLR_Right			UMETA(DisplayName = "Right"),	
+      EKLR_Left			UMETA(DisplayName = "Left"),
+      
+      EKLR_Default		UMETA(DisplayName = "Default")
+    };
+    protected:
+      /* Inpressed Keys */
+      UPROPERTY(VisibleAnywhere, Category="Movement")
+      EKeyUpDown Key_UD;
+
+      UPROPERTY(VisibleAnywhere, Category = "Movement")
+      EKeyLeftRight Key_LR;
+
+      UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
+      float JumpMovementForce;
+
+    	/* Jump */
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerJump();
+      
+      FORCEINLINE void SetKeyUpDown(EKeyUpDown newKey) { Key_UD = newKey; }
+      FORCEINLINE void SetKeyLeftRight(EKeyLeftRight newKey) { Key_LR = newKey; }
+
+      FORCEINLINE EKeyUpDown GetKeyUpDown() { return Key_UD; }
+      FORCEINLINE EKeyLeftRight GetKeyLeftRight() { return Key_LR; }
+    public:
+      virtual void Jump() override;
+    ```
+    </details>
+    
+- ## <span style = "color:yellow;">잡다한것</span>
   - 제자리 점프와 달려가면서 하는 점프간의 속도 차이가 발생
-    - __이전 방법__ : 움직임을 멈추고, Jump(), 하지만 이 방법은 너무 개발자답지 못한 방식
-    - __현재 방법__ : 기존 점프 Force에서 현재 이동 속도를 빼서 계산한 만큼 점프
-  - 기존에는 카메라가 움직이지 않았지만, 멀티에서는 움직이기 때문에 점프 방향의 문제가 발생
-    - 사용자의 시점에서의 좌우상하 판단....?
-
-
+    - 기존 점프 Force에서 현재 이동 속도를 빼서 계산한 만큼 점프
+      ```cpp
+      ForceVec = FVector(0, -(JumpMovementForce - GetVelocity().Size()), 1400.f);
+      ```
+  - 기존에는 카메라가 움직이지 않았지만, 멀티에서는 움직이기 때문에 점프 방향의 문제 발생
+    - 방향을 __"GetActorUpVector() + GetActorForwardVector()"로__ 처리
+      ```cpp
+      FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
+      ```
 
 - ## <span style = "color:yellow;">무기에 따른 애니메이션</span>
-  - <img src="Image/DoubleJump.gif" height="300" title="DoubleJump">
+  - <img src="Image/.gif" height="300" title="">
     - 추가로 weapon에 따라 애니메이션이 달라지는 "KindOfWeapon"제작
     - 이를 위해서 Weapon클래스를 제작해야하고, Player에 장착된 Weapon의 종류에 따라 애니메이션을 다르게 처리해야한다.
+
+**<h3>Realization</h3>**
+  - 제자리 점프와 달려가면서 하는 점프간의 속도 차이가 발생
+    - 기존에는 움직임을 멈추고, Jump(), 하지만 이 방법은 너무 개발자답지 못한 방식이였기 때문에 기존 점프 Force에서 현재 이동 속도를 빼서 계산한 만큼 점프하도록 변경
+
+  - 기존에는 카메라가 움직이지 않았지만, 멀티에서는 움직이기 때문에 점프 방향의 문제가 발생
+    - 방향을 __"GetActorUpVector() + GetActorForwardVector()"로__ 처리
+
+  - <img src="Image/DoubleJump_Error(Three).gif" height="300" title="DoubleJump_Error(Three)">
+  - __개선점__ : 클라이언트는 점프를 3번하는 문제와 애니메이션이 실행되지 않는 문제
