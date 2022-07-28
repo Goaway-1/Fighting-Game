@@ -159,7 +159,6 @@ void ANCameraManager::SetPlayer(AActor* Player) {
 		ServerSetPlayer(Player);
 	}
 
-	UE_LOG(LogTemp, Warning, TEXT("New Player : %s"), *Player->GetName());
 	Players.Push(Player);
 }
 void ANCameraManager::ServerSetPlayer_Implementation(AActor* Player) {

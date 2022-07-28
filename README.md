@@ -236,11 +236,6 @@
       FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
       ```
 
-- ## <span style = "color:yellow;">무기에 따른 애니메이션</span>
-  - <img src="Image/.gif" height="300" title="">
-    - 추가로 weapon에 따라 애니메이션이 달라지는 "KindOfWeapon"제작
-    - 이를 위해서 Weapon클래스를 제작해야하고, Player에 장착된 Weapon의 종류에 따라 애니메이션을 다르게 처리해야한다.
-
 **<h3>Realization</h3>**
   - 제자리 점프와 달려가면서 하는 점프간의 속도 차이가 발생
     - 기존에는 움직임을 멈추고, Jump(), 하지만 이 방법은 너무 개발자답지 못한 방식이였기 때문에 기존 점프 Force에서 현재 이동 속도를 빼서 계산한 만큼 점프하도록 변경
@@ -250,3 +245,108 @@
 
   - <img src="Image/DoubleJump_Error(Three).gif" height="300" title="DoubleJump_Error(Three)">
   - __개선점__ : 클라이언트는 점프를 3번하는 문제와 애니메이션이 실행되지 않는 문제
+
+## **Day_4**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">무기에 따른 애니메이션</span>
+  - <img src="Image/SpawnWeapon.gif" height="300" title="SpawnWeapon">
+    - 추가로 weapon에 따라 애니메이션이 달라지는 "KindOfWeapon"제작
+    - 이를 위해서 Weapon클래스를 제작해야하고, Player에 장착된 Weapon의 종류에 따라 애니메이션을 다르게 처리해야한다.
+      - 아직 애니메이션 처리를 하지 않았음
+    - NWeapon클래스를 만들고 이를 NPlayer에서 호출하여 생성. 이때 무기는 랜덤으로 지정 (SetWeaponRandom())
+      - 또한 서버에서 공유되어야 하기때문에 Replicates설정
+    - NPlayer에서의 Weapon 생성은 BeginPlay()에서 진행되며 서버일때만 생성되도록 설정
+
+    <details><summary>C++ File</summary> 
+
+    ```c++
+    //NWeapon.cpp
+    ANWeapon::ANWeapon(){
+      MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
+      SetRootComponent(MeshComp);
+      if(WeaponMeshType.Num() >= 2) MeshComp->SetStaticMesh(WeaponMeshType[0]);
+
+      SetReplicates(true);
+    }
+    void ANWeapon::BeginPlay(){
+      Super::BeginPlay();
+
+      SetWeaponRandom();
+    }
+    void ANWeapon::SetWeaponRandom() {
+      if (WeaponMeshType.Num() >= 2) {
+        int32 WeaponTmp = FMath::RandRange(0, 1);
+        if (WeaponTmp == 0) {
+          MeshComp->SetStaticMesh(WeaponMeshType[WeaponTmp]);
+          WeaponType = EWeaponType::EWT_Sword;
+        }
+        else {
+          MeshComp->SetStaticMesh(WeaponMeshType[WeaponTmp]);
+          WeaponType = EWeaponType::EWT_Blade;
+        }
+    }
+    ```
+    ```cpp
+    //NPlayer.cpp
+    ANPlayer::ANPlayer() {
+      ...
+
+    	WeaponAttachSocketName = "WeaponSocket";
+    }
+    void ANPlayer::BeginPlay() {
+      ...
+
+      /** Spawn Weapon */
+      if (HasAuthority()) {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+        if (CurrentWeapon) {
+          CurrentWeapon->SetOwner(this);
+          CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
+        }
+      }
+    }
+    ```
+    </details>
+
+    <details><summary>Header File</summary> 
+
+    ```c++
+    //NWeapon.h
+    protected:
+      UPROPERTY(Category = "Weapon")
+      EWeaponType WeaponType;
+
+      /* Please Set Weapons Mesh */
+      UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+      TArray<UStaticMesh*> WeaponMeshType;
+
+      UPROPERTY(Category = "Weapon")
+      UStaticMeshComponent* MeshComp;
+
+      /* Set Player's Weapon for Random */
+      UFUNCTION()
+      void SetWeaponRandom();
+    public:	
+      FORCEINLINE EWeaponType GetWeaponType() { return WeaponType; }
+    ```
+    ```c++
+    //NPlayer.h
+    UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+    TSubclassOf<AActor> StarterWeaponClass;
+
+    UPROPERTY(VisibleAnywhere, Category = "Weapon")
+    class ANWeapon* CurrentWeapon;
+
+    UPROPERTY(VisibleDefaultsOnly, Category = "Weapon")
+    FName WeaponAttachSocketName;
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">끄적 끄적</span>
+  왜 안될까? 분명 클라에서만 호출해 주면되는거 아닌가? 걍 서버에서만 호출해 버릴까? 어때 괜찮지 않아? 
+
+**<h3>Realization</h3>**
+  - 무기 클래스는 생성했으나 무기에 따른 애니메이션은 생성 X 
