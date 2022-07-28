@@ -316,14 +316,14 @@
     ```c++
     //NWeapon.h
     protected:
-      UPROPERTY(Category = "Weapon")
+      UPROPERTY(EditDefaultsOnly,Category = "Weapon")
       EWeaponType WeaponType;
 
       /* Please Set Weapons Mesh */
       UPROPERTY(EditDefaultsOnly, Category = "Weapon")
       TArray<UStaticMesh*> WeaponMeshType;
 
-      UPROPERTY(Category = "Weapon")
+      UPROPERTY(EditDefaultsOnly,Category = "Weapon")
       UStaticMeshComponent* MeshComp;
 
       /* Set Player's Weapon for Random */
