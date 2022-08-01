@@ -53,12 +53,15 @@ protected:
 	UPROPERTY(VisibleAnywhere, Category = "Movement")
 	EKeyLeftRight Key_LR;
 
+	/* Jump */
+	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Movement|Jump")
+	bool bIsDoubleJump;
+
 	UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
 	float JumpMovementForce;
 
-	/* Jump */
 	UFUNCTION(Server, Reliable, WithValidation)
-	void NServerJump();
+	void ServerJump();
 	
 	FORCEINLINE void SetKeyUpDown(EKeyUpDown newKey) { Key_UD = newKey; }
 	FORCEINLINE void SetKeyLeftRight(EKeyLeftRight newKey) { Key_LR = newKey; }
@@ -70,13 +73,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TSubclassOf<AActor> StarterWeaponClass;
 
-	UPROPERTY(VisibleAnywhere, Category = "Weapon")
+	UPROPERTY(Replicated, VisibleDefaultsOnly, BlueprintReadWrite,Category = "Weapon")
 	class ANWeapon* CurrentWeapon;
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Weapon")
 	FName WeaponAttachSocketName;
 public:
-	void NJump();
 	virtual void Jump() override;
 	virtual void ResetJumpState() override;
 };

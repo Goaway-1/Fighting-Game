@@ -23,20 +23,27 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
-	UPROPERTY(Category = "Weapon")
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	EWeaponType WeaponType;
 
 	/* Please Set Weapons Mesh */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TArray<UStaticMesh*> WeaponMeshType;
 
-	UPROPERTY(Category = "Weapon")
+	UPROPERTY(Replicated,EditDefaultsOnly,Category = "Weapon")
 	UStaticMeshComponent* MeshComp;
 
 	/* Set Player's Weapon for Random */
+	//UFUNCTION()
+	//void SetWeaponRandom();
+	
+	UFUNCTION(Server, Reliable)
+	void ServerSetWeaponRandom(EWeaponType ChangeWeaponType);
+public:	
+	UFUNCTION(BlueprintCallable)
+	FORCEINLINE EWeaponType GetWeaponType() { return WeaponType; }
+
 	UFUNCTION()
 	void SetWeaponRandom();
-public:	
-	FORCEINLINE EWeaponType GetWeaponType() { return WeaponType; }
 
 };

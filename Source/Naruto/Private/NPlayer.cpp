@@ -30,6 +30,7 @@ ANPlayer::ANPlayer() {
 	GetCharacterMovement()->AirControl = 0.f;
 	GetCharacterMovement()->AirControlBoostMultiplier = 0.f;
 	GetCharacterMovement()->AirControlBoostVelocityThreshold = 0.f;
+	bIsDoubleJump = false;
 
 	/* Impressed Keys */
 	SetKeyUpDown(EKeyUpDown::EKUD_Default);
@@ -70,6 +71,7 @@ void ANPlayer::BeginPlay() {
 		if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
 		if (CurrentWeapon) {
 			CurrentWeapon->SetOwner(this);
+			//if(IsLocallyControlled()) CurrentWeapon->SetWeaponRandom();
 			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
 		}
 	}
@@ -115,38 +117,35 @@ void ANPlayer::MoveRight(float Value) {
 	else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
 }
 void ANPlayer::Jump() {
-	NJump();
-}
-void ANPlayer::NJump() {
 	if (!HasAuthority()) {
-		NServerJump();
-		return;
+		ServerJump();
 	}
 
 	if (JumpCurrentCount++ < 2) {
-		UE_LOG(LogTemp, Warning, TEXT("LOCAL JUMP : %d"), JumpCurrentCount);
+		/** for Animation */
+		if (JumpCurrentCount == 2) bIsDoubleJump = true;
+		else bIsDoubleJump = false;
+
 		FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
 		ForceVec.Z = 1400.f;
 		LaunchCharacter(ForceVec, false, false);
 	}
 }
-void ANPlayer::NServerJump_Implementation() {
-	//NJump();
-	if (++JumpCurrentCount < 2) {
-		UE_LOG(LogTemp, Warning, TEXT("SERVER JUMP : %d"), JumpCurrentCount);
-		FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
-		ForceVec.Z = 1400.f;
-		LaunchCharacter(ForceVec, false, false);
-	}
+void ANPlayer::ServerJump_Implementation() {
+	JumpCurrentCount++;
+	Jump();
 }
-bool ANPlayer::NServerJump_Validate() {
+bool ANPlayer::ServerJump_Validate() {
 	return true;
 }
 void ANPlayer::ResetJumpState() {
 	Super::ResetJumpState();
+
+	if (GetCharacterMovement() && !GetCharacterMovement()->IsFalling()) bIsDoubleJump = false;
 }
-//void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
-//	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-//
-//	DOREPLIFETIME(ANPlayer, CurrentWeapon);
-//}
+void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ANPlayer, CurrentWeapon);
+	DOREPLIFETIME(ANPlayer, bIsDoubleJump);
+}

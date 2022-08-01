@@ -250,12 +250,12 @@
 > **<h3>Today Dev Story</h3>**
 - ## <span style = "color:yellow;">무기에 따른 애니메이션</span>
   - <img src="Image/SpawnWeapon.gif" height="300" title="SpawnWeapon">
-    - 추가로 weapon에 따라 애니메이션이 달라지는 "KindOfWeapon"제작
-    - 이를 위해서 Weapon클래스를 제작해야하고, Player에 장착된 Weapon의 종류에 따라 애니메이션을 다르게 처리해야한다.
-      - 아직 애니메이션 처리를 하지 않았음
-    - NWeapon클래스를 만들고 이를 NPlayer에서 호출하여 생성. 이때 무기는 랜덤으로 지정 (SetWeaponRandom())
-      - 또한 서버에서 공유되어야 하기때문에 Replicates설정
-    - NPlayer에서의 Weapon 생성은 BeginPlay()에서 진행되며 서버일때만 생성되도록 설정
+  - 추가로 weapon에 따라 애니메이션이 달라지는 "KindOfWeapon"제작
+  - 이를 위해서 Weapon클래스를 제작해야하고, Player에 장착된 Weapon의 종류에 따라 애니메이션을 다르게 처리해야한다.
+    - 아직 애니메이션 처리를 하지 않았음
+  - NWeapon클래스를 만들고 이를 NPlayer에서 호출하여 생성. 이때 무기는 랜덤으로 지정 (SetWeaponRandom())
+    - 또한 서버에서 공유되어야 하기때문에 Replicates설정
+  - NPlayer에서의 Weapon 생성은 BeginPlay()에서 진행되며 서버일때만 생성되도록 설정
 
     <details><summary>C++ File</summary> 
 
@@ -350,3 +350,68 @@
 
 **<h3>Realization</h3>**
   - 무기 클래스는 생성했으나 무기에 따른 애니메이션은 생성 X 
+
+## **Day_5**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">점프 수정</span>
+  - <img src="Image/DoubleJump_3.gif" height="300" title="DoubleJump_3">
+  - __더블 점프가 3번 되는 문제 해결__
+    - 로그를 띄워보니 JumpCurrentCount가 클라이언트에만 적용된다고 판단
+    - Server를 통한 호출은 따로 JumpCurrentCount++ 처리하여 해결
+  - __점프 애니메이션 문제 해결__
+    - <img src="Image/DoubleJumpAnimation.png" height="300" title="DoubleJumpAnimation">
+    - bIsDubleJump라는 bool을 DOREPLIFETIME처리하여 동기화를 유지한다. 이 값에 따라 애니메이션이 달라진다.
+
+    <details><summary>Cpp File</summary> 
+
+    ```c++
+    //NPlayer.cpp
+    #include "Net/UnrealNetwork.h"
+    ANPlayer::ANPlayer() {
+      ...
+      bIsDoubleJump = false;
+    }
+    void ANPlayer::Jump() {
+      if (!HasAuthority()) {
+        NServerJump();
+        return;
+      }
+
+      if (JumpCurrentCount++ < 2) {
+        /** for Animation */
+        if (JumpCurrentCount == 2) bIsDoubleJump = true;
+		    else bIsDoubleJump = false;
+        
+        FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
+        ForceVec.Z = 1400.f;
+        LaunchCharacter(ForceVec, false, false);
+      }
+    }
+    void ANPlayer::ServerJump_Implementation() {
+      /** resolved triple jump! */
+      JumpCurrentCount++;
+      Jump();
+    }
+    void ANPlayer::ResetJumpState() {
+      ...
+      if (GetCharacterMovement() && !GetCharacterMovement()->IsFalling()) bIsDoubleJump = false;
+    }
+    void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+      ...
+      DOREPLIFETIME(ANPlayer, bIsDoubleJump);
+    }
+    ```
+    </details>
+
+    <details><summary>Header File</summary> 
+
+    ```c++
+    //NPlayer.h
+    private:
+    	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Movement|Jump")
+	    bool bIsDoubleJump;
+    ```
+    </details>
+
+**<h3>Realization</h3>**
+  - 로그를 띄워서 확인
