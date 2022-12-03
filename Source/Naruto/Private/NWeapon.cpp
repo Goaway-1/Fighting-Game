@@ -6,13 +6,18 @@ ANWeapon::ANWeapon(){
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
 	SetRootComponent(MeshComp);
 
-	SetReplicates(true);
+	//SetReplicates(true);
+	bReplicates = true;
+}
+void ANWeapon::PostInitProperties() {
+	Super::PostInitProperties();
+
+	if (WeaponMeshType.Num() < 2) UE_LOG(LogTemp, Warning, TEXT("Please Set WeaponMeshType of Weapon class"));
 }
 void ANWeapon::BeginPlay(){
 	Super::BeginPlay();
 
-	if (WeaponMeshType.Num() < 2) UE_LOG(LogTemp, Warning, TEXT("Please Set WeaponMeshType of Weapon class"));
-	//SetWeaponRandom();
+	SetWeaponRandom();
 }
 void ANWeapon::SetWeaponRandom() {
 	if (WeaponMeshType.Num() >= 2) {
@@ -25,17 +30,16 @@ void ANWeapon::SetWeaponRandom() {
 			MeshComp->SetStaticMesh(WeaponMeshType[WeaponTmp]);
 			WeaponType = EWeaponType::EWT_Blade;
 		}
-		//if ( !HasAuthority()) ServerSetWeaponRandom(WeaponType);
 	}
 }
-
 void ANWeapon::ServerSetWeaponRandom_Implementation(EWeaponType ChangeWeaponType){
-	if(ChangeWeaponType == EWeaponType::EWT_Blade) MeshComp->SetStaticMesh(WeaponMeshType[0]);
-	else MeshComp->SetStaticMesh(WeaponMeshType[1]);
+	if(ChangeWeaponType == EWeaponType::EWT_Blade) MeshComp->SetStaticMesh(WeaponMeshType[1]);
+	else MeshComp->SetStaticMesh(WeaponMeshType[0]);
 }
 
 void ANWeapon::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(ANWeapon, MeshComp);
+	//DOREPLIFETIME(ANWeapon, MeshComp);
+	DOREPLIFETIME(ANWeapon, WeaponType);
 }

@@ -21,9 +21,10 @@ public:
 	ANWeapon();
 
 protected:
+	virtual void PostInitProperties() override;
 	virtual void BeginPlay() override;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	UPROPERTY(Replicated, EditDefaultsOnly, Category = "Weapon")
 	EWeaponType WeaponType;
 
 	/* Please Set Weapons Mesh */
@@ -45,5 +46,4 @@ public:
 
 	UFUNCTION()
 	void SetWeaponRandom();
-
 };

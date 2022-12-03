@@ -414,4 +414,177 @@
     </details>
 
 **<h3>Realization</h3>**
-  - 로그를 띄워서 확인
+  - 로그를 띄워서 확인하는 습관을 지니자
+
+## **Day_6**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">더블 점프를 공중에서 조금 더 유연하도록 수정</span>
+  - <img src="Image/DoubleJump_Smooth.gif" height="300" title="DoubleJump_Smooth">
+  - 기존 방향으로 점프는 구성되어 있었지만, 반대 방향으로의 속도 때문에 적용되지 않았다.
+    - 단순히 속도를 멈추는 방식으로 진행하였으나, 애니메이션으로 처리한다면 지금까지의 과정이 필요없을 것으로 예상된다.
+
+    <details><summary>Cpp File</summary> 
+
+    ```cpp
+    //NPlayer.cpp
+    void ANPlayer::Jump() {
+      ...
+      if (JumpCurrentCount++ < 2) {
+        if (JumpCurrentCount == 2) {
+          GetMovementComponent()->StopMovementImmediately();
+          bIsDoubleJump = true;
+        }
+        ...
+        LaunchCharacter(ForceVec, false, false);
+      }
+    }
+    ```
+    </details>
+
+**<h3>Realization</h3>**
+  - null
+
+  
+## **Day_5**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">점프 수정</span>
+  - <img src="Image/DoubleJump_3.gif" height="300" title="DoubleJump_3">
+  - __더블 점프가 3번 되는 문제 해결__
+    - 로그를 띄워보니 JumpCurrentCount가 클라이언트에만 적용된다고 판단
+    - Server를 통한 호출은 따로 JumpCurrentCount++ 처리하여 해결
+  - __점프 애니메이션 문제 해결__
+    - <img src="Image/DoubleJumpAnimation.png" height="300" title="DoubleJumpAnimation">
+    - bIsDubleJump라는 bool을 DOREPLIFETIME처리하여 동기화를 유지한다. 이 값에 따라 애니메이션이 달라진다.
+
+    <details><summary>Cpp File</summary> 
+
+    ```c++
+    //NPlayer.cpp
+    #include "Net/UnrealNetwork.h"
+    ANPlayer::ANPlayer() {
+      ...
+      bIsDoubleJump = false;
+    }
+    void ANPlayer::Jump() {
+      if (!HasAuthority()) {
+        NServerJump();
+        return;
+      }
+
+      if (JumpCurrentCount++ < 2) {
+        /** for Animation */
+        if (JumpCurrentCount == 2) bIsDoubleJump = true;
+		    else bIsDoubleJump = false;
+        
+        FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
+        ForceVec.Z = 1400.f;
+        LaunchCharacter(ForceVec, false, false);
+      }
+    }
+    void ANPlayer::ServerJump_Implementation() {
+      /** resolved triple jump! */
+      JumpCurrentCount++;
+      Jump();
+    }
+    void ANPlayer::ResetJumpState() {
+      ...
+      if (GetCharacterMovement() && !GetCharacterMovement()->IsFalling()) bIsDoubleJump = false;
+    }
+    void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+      ...
+      DOREPLIFETIME(ANPlayer, bIsDoubleJump);
+    }
+    ```
+    </details>
+
+    <details><summary>Header File</summary> 
+
+    ```c++
+    //NPlayer.h
+    private:
+    	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Movement|Jump")
+	    bool bIsDoubleJump;
+    ```
+    </details>
+
+**<h3>Realization</h3>**
+  - 로그를 띄워서 확인하는 습관을 지니자
+
+## **Day_7**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">공격 클래스 작성</span>
+  - <img src="Image/AttackClass&Montage_Replicated.gif" height="300" title="AttackClass">
+  - <img src="Image/Network_AnimMontage.png" height="150" title="Network_AnimMontage">
+  - 플레이어의 공격들을 담당하는 'ActorComponent'인 'AttackActorComponent'클래스 생성
+    - 기본 공격, 콤보, 특정 공격등과 관련된 모든 것을 관리
+    - 현재는 테스트용으로 "몽타주"를 Replicated하게만 했음
+
+    <details><summary>Cpp File</summary> 
+
+    ```cpp
+    //UAttackActorComponent.cpp
+    #include "Net/UnrealNetwork.h"  
+    void UAttackActorComponent::Attack() {
+      PlayNetworkMontage(AttackMontage, 1.f);
+    }
+
+    void UAttackActorComponent::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate) {
+      if (Cast<ACharacter>(GetOwner())->IsLocallyControlled()) {
+        if (MainAnimInstance) MainAnimInstance->Montage_Play(Mongtage, PlayRate);
+
+        ServerPlayMontage(Mongtage,PlayRate);
+      }
+    }
+    void UAttackActorComponent::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongtage, float PlayRate) {
+      if (!Cast<ACharacter>(GetOwner())->IsLocallyControlled()) {
+        if (MainAnimInstance) MainAnimInstance->Montage_Play(Mongtage, PlayRate);
+      }
+    }
+    bool UAttackActorComponent::MultiPlayNetworkMontage_Validate(UAnimMontage* Mongtage, float PlayRate) {
+      return true;
+    }
+    void UAttackActorComponent::ServerPlayMontage_Implementation(UAnimMontage* Mongtage, float PlayRate) {
+      MultiPlayNetworkMontage(Mongtage, PlayRate);
+    }
+    bool UAttackActorComponent::ServerPlayMontage_Validate(UAnimMontage* Mongtage, float PlayRate) {
+      return true;
+    }
+    ```
+    ```cpp
+    //NPlayer.cpp
+    ANPlayer::ANPlayer() {
+      ...
+	    CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
+    }
+    void ANPlayer::BeginPlay() {
+      ...
+      CurAttackComp->SetAnimInstance(GetMesh()->GetAnimInstance());
+    }
+    void ANPlayer::Attack() {
+      CurAttackComp->Attack();
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+
+    ```cpp
+    //UAttackActorComponent.h
+    public:
+      UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Anims")
+      class UAnimMontage* AttackMontage;
+
+      void Attack();	
+
+      void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate);
+
+      UFUNCTION(NetMulticast, Reliable, WithValidation)
+      void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate);
+
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate);
+      FORCEINLINE void SetAnimInstance(UAnimInstance* AnimInst) { MainAnimInstance = AnimInst; }
+    ```
+    </details>
+
+**<h3>Realization</h3>**
+  - 오랜만에 하니 네트워크 관련해서 다 잊었다. 다시 시작하자. 

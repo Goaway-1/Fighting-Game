@@ -7,6 +7,7 @@
 #include "NGameMode.h"
 #include "NWeapon.h"
 #include "Net/UnrealNetwork.h"
+#include "AttackActorComponent.h"
 
 ANPlayer::ANPlayer() {
 	PrimaryActorTick.bCanEverTick = true;
@@ -41,6 +42,9 @@ ANPlayer::ANPlayer() {
 
 	/* Weapon */
 	WeaponAttachSocketName = "WeaponSocket";
+
+	/* Attack */
+	CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
 }
 void ANPlayer::BeginPlay() {
 	Super::BeginPlay();
@@ -64,17 +68,19 @@ void ANPlayer::BeginPlay() {
 	if (CameraManager) CameraManager->SetPlayer(this);
 
 	/** Weapon */
-	if (HasAuthority()) {
+	if (HasAuthority() && CurrentWeapon == nullptr) {
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
 		if (CurrentWeapon) {
 			CurrentWeapon->SetOwner(this);
-			//if(IsLocallyControlled()) CurrentWeapon->SetWeaponRandom();
 			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
 		}
 	}
+
+	/* Attack */
+	CurAttackComp->SetAnimInstance(GetMesh()->GetAnimInstance());
 }
 void ANPlayer::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
@@ -99,6 +105,9 @@ void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) 
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &ANPlayer::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ANPlayer::MoveRight);
+
+	//Attack
+	PlayerInputComponent->BindAction("Attack1", IE_Pressed,this, &ANPlayer::Attack);
 }
 void ANPlayer::MoveForward(float Value) {
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
@@ -123,7 +132,10 @@ void ANPlayer::Jump() {
 
 	if (JumpCurrentCount++ < 2) {
 		/** for Animation */
-		if (JumpCurrentCount == 2) bIsDoubleJump = true;
+		if (JumpCurrentCount == 2) {
+			GetMovementComponent()->StopMovementImmediately();
+			bIsDoubleJump = true;
+		}
 		else bIsDoubleJump = false;
 
 		FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
@@ -142,6 +154,9 @@ void ANPlayer::ResetJumpState() {
 	Super::ResetJumpState();
 
 	if (GetCharacterMovement() && !GetCharacterMovement()->IsFalling()) bIsDoubleJump = false;
+}
+void ANPlayer::Attack() {
+	CurAttackComp->Attack();
 }
 void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
