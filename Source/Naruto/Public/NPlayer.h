@@ -79,12 +79,15 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, Category = "Weapon")
 	FName WeaponAttachSocketName;
 
+	void SetWeapon();
+
 	/** Attack */
 	void Attack();
 
-	UPROPERTY(VisibleDefaultsOnly, Category = "Attack")
-	class UAttackActorComponent* CurAttackComp;
 public:
 	virtual void Jump() override;
 	virtual void ResetJumpState() override;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Attack")
+	class UAttackActorComponent* CurAttackComp;
 };

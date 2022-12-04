@@ -5,8 +5,8 @@
 ANWeapon::ANWeapon(){
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
 	SetRootComponent(MeshComp);
+	MeshComp->SetIsReplicated(true);
 
-	//SetReplicates(true);
 	bReplicates = true;
 }
 void ANWeapon::PostInitProperties() {
@@ -17,10 +17,10 @@ void ANWeapon::PostInitProperties() {
 void ANWeapon::BeginPlay(){
 	Super::BeginPlay();
 
-	SetWeaponRandom();
 }
 void ANWeapon::SetWeaponRandom() {
 	if (WeaponMeshType.Num() >= 2) {
+		UE_LOG(LogTemp, Warning, TEXT("%s SetWeaponRandom is Called!"),*GetOwner()->GetName());
 		int32 WeaponTmp = FMath::RandRange(0, 1);
 		if (WeaponTmp == 0) {
 			MeshComp->SetStaticMesh(WeaponMeshType[WeaponTmp]);
@@ -40,6 +40,5 @@ void ANWeapon::ServerSetWeaponRandom_Implementation(EWeaponType ChangeWeaponType
 void ANWeapon::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	//DOREPLIFETIME(ANWeapon, MeshComp);
 	DOREPLIFETIME(ANWeapon, WeaponType);
 }

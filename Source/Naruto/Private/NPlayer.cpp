@@ -66,18 +66,9 @@ void ANPlayer::BeginPlay() {
 	}
 
 	if (CameraManager) CameraManager->SetPlayer(this);
-
+	
 	/** Weapon */
-	if (HasAuthority() && CurrentWeapon == nullptr) {
-		FActorSpawnParameters SpawnParams;
-		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-		if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
-		if (CurrentWeapon) {
-			CurrentWeapon->SetOwner(this);
-			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
-		}
-	}
+	SetWeapon();
 
 	/* Attack */
 	CurAttackComp->SetAnimInstance(GetMesh()->GetAnimInstance());
@@ -155,8 +146,21 @@ void ANPlayer::ResetJumpState() {
 
 	if (GetCharacterMovement() && !GetCharacterMovement()->IsFalling()) bIsDoubleJump = false;
 }
+void ANPlayer::SetWeapon() {
+	if (HasAuthority()) {
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+		if (CurrentWeapon) {
+			CurrentWeapon->SetOwner(this);
+			CurrentWeapon->SetWeaponRandom();
+			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
+		}
+	}
+}
 void ANPlayer::Attack() {
-	CurAttackComp->Attack();
+	CurAttackComp->DefaultAttack_KeyDown();
 }
 void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

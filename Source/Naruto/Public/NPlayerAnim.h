@@ -18,7 +18,8 @@ public:
 
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
-private:
+protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	class ANPlayer* Player;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Movement", Meta = (AllowPrivateAccess = true))

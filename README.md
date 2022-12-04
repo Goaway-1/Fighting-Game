@@ -345,11 +345,9 @@
     ```
     </details>
 
-- ## <span style = "color:yellow;">끄적 끄적</span>
-  왜 안될까? 분명 클라에서만 호출해 주면되는거 아닌가? 걍 서버에서만 호출해 버릴까? 어때 괜찮지 않아? 
-
 **<h3>Realization</h3>**
   - 무기 클래스는 생성했으나 무기에 따른 애니메이션은 생성 X 
+  - ### 또한 무기를 생성했을때, 호환되지 않는 문제 발생
 
 ## **Day_5**
 > **<h3>Today Dev Story</h3>**
@@ -588,3 +586,149 @@
 
 **<h3>Realization</h3>**
   - 오랜만에 하니 네트워크 관련해서 다 잊었다. 다시 시작하자. 
+
+## **Day_7**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">무기 생성 문제 해결</span>
+  - <img src="Image/SetWeaponReplicate.gif" height="300" title="SetWeaponReplicate">
+  - 기존 [Day4](#또한-무기를-생성했을때,-호환되지-않는-문제-발생)의 문제를 해결하기 위해서 원인을 판단 
+    - 초기에는 생성에 오류가 있는듯 했으나, 클라이언트에 생성은 되지만 Mesh에 NULL값이 들어가있는 것을 확인 -> 즉, Mesh에 Replicated가 적용 X
+
+    ---
+    <details><summary>Cpp File</summary> 
+
+    ```cpp
+    //NPlayer.cpp
+    void ANPlayer::BeginPlay() {
+      ...
+	    SetWeapon();
+    }
+    void ANPlayer::SetWeapon() {
+      if (HasAuthority()) {
+        FActorSpawnParameters SpawnParams;
+        SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+        if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
+        if (CurrentWeapon) {
+          CurrentWeapon->SetOwner(this);
+          CurrentWeapon->SetWeaponRandom();
+          CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
+        }
+      }
+    }
+    ```
+    ```cpp
+    //NWeapon.cpp
+    ANWeapon::ANWeapon(){
+      ...
+      MeshComp->SetIsReplicated(true);
+    }
+    ```
+    </details>
+    
+- ## <span style = "color:yellow;">공격의 콤보 구조체</span>
+  -  Actor클래스를 상속받은 새로운 구조체 클래스(AttackStruct)를 생성
+  - __"AttackStruct"는__ 행동에 맞는 각 몽타주를 위해서 2개의 몽타주(Attacker,Victim), 콤보의 최대 카운트(ComboCnt), 거리(distance)로 구성
+    - 이때 거리는 특정 스킬을 사용할때 사용할 예정
+    ---
+    <details><summary>Header File</summary> 
+
+    ```cpp
+    //AttackStruct.h
+    USTRUCT(Atomic, BlueprintType)
+    struct FAttackMontageStruct
+    {
+      GENERATED_BODY()
+    public:
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      class UAnimMontage* MT_Attacker;
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      class UAnimMontage* MT_Victim;
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	    int ComboCnt;
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      float distance;
+    };
+    ```
+    ```cpp
+    // AttackActorComponent.cpp
+    UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
+    TArray<FAttackMontageStruct> MontageArr;
+    ```
+    </details>
+
+
+- ## <span style = "color:yellow;">공격의 콤보</span>
+  - <img src="Image/AttackCombo.gif" height="300" title="AttackCombo">
+  - <img src="Image/AttackComboBP.png" height="300" title="AttackComboBP">
+  - 이전 프로젝트에서 구현한 코드하여 제작했으며, 콤보를 위해서 기존 Montage 관련 메서드에 몽타주 idx번호를 추가
+    - __"AttackInputCheck()"__ 노티파이전에 입력이 들어왔다면, Attack()하여 콤보를 진행하고, 그렇지 않다면 __"EndAttack()"__ 메서드 실행하여 콤보를 종료
+
+    ---
+    <details><summary>CPP File</summary> 
+
+    ```cpp
+    //AttackActorComponent.cpp
+    void UAttackActorComponent::DefaultAttack_KeyDown() {
+      bLMBDown = true;
+
+      if (!bAttacking) Attack();
+      else bIsAttackCheck = true;
+    }
+    void UAttackActorComponent::Attack() {
+      bAttacking = true;
+
+      if (MainAnimInstance) {
+        if (!MainAnimInstance->Montage_IsPlaying(MontageArr[0].MT_Attacker)) {	
+          ComboCnt = 1;
+          PlayNetworkMontage(MontageArr[0].MT_Attacker, 1.f, 1);    //초기 공격
+        }
+        else PlayNetworkMontage(MontageArr[0].MT_Attacker, 1.f, ComboCnt);
+      }
+    }
+    void UAttackActorComponent::EndAttack() {
+      bAttacking = false;
+    }
+    void UAttackActorComponent::AttackInputCheck() {
+      if (bIsAttackCheck) {
+        ComboCnt++;
+        if (ComboCnt > MontageArr[0].ComboCnt) ComboCnt = 1;
+        bIsAttackCheck = false;
+        Attack();
+      }
+    }
+    FName UAttackActorComponent::GetAttackMontageSection(int32 Section) {
+      return FName(*FString::Printf(TEXT("Attack%d"), Section));
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+
+    ```cpp
+    //AttackActorComponent.h
+    void DefaultAttack_KeyDown();
+    void Attack();	
+
+    UFUNCTION(BlueprintCallable)
+    void EndAttack();
+
+    UFUNCTION(BlueprintCallable)
+    void AttackInputCheck();
+
+    FName GetAttackMontageSection(int32 Section);
+
+    int16 ComboCnt = 0;
+    bool bAttacking = false;
+    bool bLMBDown = false;
+    bool bIsAttackCheck = false;
+
+    /** Montage 관련 메서드 -> 매개변수 idx의 추가 */
+    void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, int idx);
+	  void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, int idx);
+	  void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate, int idx);
+    ```
+    </details>
+
+**<h3>Realization</h3>**
+  - 현재 콤보를 진행할때, 하나의 콤보만 진행되는데 키 입력에 따른 다양화를 할 생각
+    - 즉, MontageArr 배열에 추가하고, 조건 변경..
