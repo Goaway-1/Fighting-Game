@@ -584,10 +584,10 @@
     ```
     </details>
 
-**<h3>Realization</h3>**
+> **<h3>Realization</h3>**
   - 오랜만에 하니 네트워크 관련해서 다 잊었다. 다시 시작하자. 
 
-## **Day_7**
+## **Day_8**
 > **<h3>Today Dev Story</h3>**
 - ## <span style = "color:yellow;">무기 생성 문제 해결</span>
   - <img src="Image/SetWeaponReplicate.gif" height="300" title="SetWeaponReplicate">
@@ -729,6 +729,111 @@
     ```
     </details>
 
-**<h3>Realization</h3>**
+> **<h3>Realization</h3>**
   - 현재 콤보를 진행할때, 하나의 콤보만 진행되는데 키 입력에 따른 다양화를 할 생각
     - 즉, MontageArr 배열에 추가하고, 조건 변경..
+
+## **Day_9**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">입력에 따른 공격 모션</span>
+  - <img src="Image/AttackSplitCombo.gif" height="300" title="AttackSplitCombo">  <img src="Image/AttackSplitCombo.png" height="300" title="AttackSplitCombo">
+  - 기존 'NPlayer.h'에서 움직임을 위해 상하좌우 키를 저장하는 ENUM클래스 __"EKeyUpDown, EKeyLeftRight"를__ 'AttackStruct.h'로 이동
+  - 'NPlayer'에서 Attack()을 호출할때, __입력된 상하키의 입력 정보를 전달__ 
+    - 이 정보에 따라 'AttackActorComponent'에서 공격 중 몽타주를 전환
+  - 콤보 시전 중에 일정 타이밍에 '상하'버튼이 눌려있다면, 다음 콤보 시 몽타주를 변경
+    - 전환은 구조체(FAttackMontageStruct)에 저장된 __"SplitIdx"의__ 값과 콤보의 번호가 일치할때, 키보드의 입력 정보에 따라 몽타주를 실행
+
+    <details><summary>CPP File</summary> 
+   
+    ```cpp
+    //NPlayer.cpp
+    void ANPlayer::Attack() {
+      CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown()); // 상하정보 전달
+    }
+    ```
+    ```cpp
+    void UAttackActorComponent::DefaultAttack_KeyDown(EKeyUpDown KeyUD){
+      TmpKeyUD = KeyUD;
+      ...
+    }
+    void UAttackActorComponent::Attack() {
+      ...
+      if (MainAnimInstance) {
+        ...
+        else {
+          // 직전 입력된 "상하"키에 따라 전환되는 몽타주
+          if (CurKeyUD == EKeyUpDown::EKUD_Up) PlayNetworkMontage(MontageArr[0].AttackSplit.MTUP_Attacker, 1.f, ComboCnt);
+          else if (CurKeyUD == EKeyUpDown::EKUD_Down) PlayNetworkMontage(MontageArr[0].AttackSplit.MTDOWN_Attacker, 1.f, ComboCnt);
+          else PlayNetworkMontage(MontageArr[0].MT_Attacker, 1.f, ComboCnt);
+        }
+      }
+    }
+    void UAttackActorComponent::EndAttack() {
+      ...
+      CurKeyUD = EKeyUpDown::EKUD_Default;      //초기화
+    }
+    void UAttackActorComponent::AttackInputCheck() {
+      if (bIsAttackCheck) {
+        ...
+        if (MontageArr[0].splitIdx == ComboCnt) CurKeyUD = TmpKeyUD;
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+
+    ```cpp
+    //AttackActorComponent.h
+    UPROPERTY(VisibleAnyWhere)
+    EKeyUpDown CurKeyUD;			// 특정 콤보횟수에 저장되며, 이에 따라 다음 몽타주가 구분
+
+    UPROPERTY(VisibleAnyWhere)
+    EKeyUpDown TmpKeyUD;			// 현재 입력된 상하버튼의 정보를 저장
+    ```
+    </details>
+    
+    ---
+  - 추가적으로 AttackStruct클래스에 상하키 입력에 따른 새로운 구조체를 만들고, 기존 구조체에 추가하는 과정을 진행
+    - __FAttackSplitMontageStruct__ : UP & DOWN 콤보로 변환되는 몽타주의 저장
+    - __FAttackMontageStruct__ : 기존 구조체
+
+    <details><summary>CPP File</summary> 
+   
+    ```cpp
+    //AttackStruct.h
+    USTRUCT(Atomic, BlueprintType)
+    struct FAttackSplitMontageStruct  // UP & DOWN 콤보로 변환되는 몽타주의 저장
+    {
+      GENERATED_BODY()
+    public:
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      class UAnimMontage* MTUP_Attacker;
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      class UAnimMontage* MTUP_Victim;
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      class UAnimMontage* MTDOWN_Attacker;
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      class UAnimMontage* MTDOWN_Victim;
+    };
+
+    USTRUCT(Atomic, BlueprintType)
+    struct FAttackMontageStruct   //기존 구조체
+    {
+      ...
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)   // Split할 콤보의 인덱스
+      int splitIdx;
+
+      UPROPERTY(EditAnywhere, BlueprintReadWrite)
+      FAttackSplitMontageStruct AttackSplit;  
+    };
+    ```
+    </details>
+
+> **<h3>Realization</h3>**
+  - 이제는 Victim이 몽타주를 실행하도록 해야함...
+
+
+## **Day_10**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">Victim Montage</span>
+  - <img src="Image/" height="300" title="">  
