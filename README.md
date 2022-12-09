@@ -797,7 +797,7 @@
     - __FAttackSplitMontageStruct__ : UP & DOWN 콤보로 변환되는 몽타주의 저장
     - __FAttackMontageStruct__ : 기존 구조체
 
-    <details><summary>CPP File</summary> 
+    <details><summary>Header File</summary> 
    
     ```cpp
     //AttackStruct.h
@@ -832,8 +832,97 @@
 > **<h3>Realization</h3>**
   - 이제는 Victim이 몽타주를 실행하도록 해야함...
 
-
 ## **Day_10**
 > **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">Attack Check</span>
+  - <img src="Image/Collision_Weapon&Player.gif" height="300" title="Collision_Weapon&Player"> 
+  - <img src="Image/Collision_Weapon&Player.png" height="400" title="Collision_Weapon&Player"> 
+  - 위 그림과 같이 객체에 맞게 콜리전을 정의 및 설정
+    - 무기 액터에는 <ins>__"OnComponentBeginOverlap"에 함수를 AddDynamic하여 충돌처리 추가__</ins>
+
+  1. 무기가 플레이어와 오버랩되면 Actor가 소유한 AttackComponent의 배열(OverlapActors)에 저장
+  2. __'Set/Get/IsAlreadyOverlap'을__ 하고, 이미 존재한다면 추가 X
+
+    <details><summary>CPP File</summary> 
+   
+    ```cpp
+    //AttackActorComponent.cpp
+    UAttackActorComponent::UAttackActorComponent(){
+      SetIsReplicated(true);
+      ...
+    }
+    void UAttackActorComponent::SetOverlapActors(AActor* actor) {
+      OverlapActors.Add(actor);
+    }
+    TArray<AActor*> UAttackActorComponent::GetOverlapActors() {
+      return OverlapActors;
+    }
+    bool UAttackActorComponent::IsAlreadyOverlap(AActor* actor) { 
+      for (int i = 0; i< OverlapActors.Num();i++) { 
+        if (OverlapActors[i] == actor) return true;
+      } 
+      return false;
+    }
+    void UAttackActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+      Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+      DOREPLIFETIME(UAttackActorComponent, OverlapActors);
+    }
+    ```
+    ```cpp
+    //NWeapon.cpp
+    ANWeapon::ANWeapon(){
+      ...
+      MeshComp->OnComponentBeginOverlap.AddDynamic(this, &ANWeapon::OnAttackBoxOverlapBegin);
+    }
+    void ANWeapon::SetWeaponRandom() {
+      ...
+      /** Set AttackController */
+      ANPlayer* OwnPlayer = Cast<ANPlayer>(GetOwner());
+      AttackController = OwnPlayer->GetCurAttackComp();
+    }
+    void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+      // 서버일때만 진행하며, 이미 배열에 존재하면 추가하지 않음
+      if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
+        AttackController->SetOverlapActors(OtherActor);
+        UE_LOG(LogTemp, Warning, TEXT("Attack!!! %s"), *OtherActor->GetName());
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+   
+    ```cpp
+    //AttackActorComponent.h
+    public:
+      /** Get/Set Overlap Actors Method */
+      UFUNCTION()
+      void SetOverlapActors(AActor* actor);
+
+      UFUNCTION()
+      TArray<AActor*> GetOverlapActors();
+
+      UFUNCTION()
+      bool IsAlreadyOverlap(AActor* actor);
+    private:
+      UPROPERTY(Replicated, VisibleAnyWhere)
+      TArray<AActor*> OverlapActors;	// OverlapActor's Array
+    ```
+    ```cpp
+    //NWeapon.h
+    protected:
+    	/** If Overlap other Actor */
+      UFUNCTION()
+      void OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+      UPROPERTY(EditDefaultsOnly, Category = "Attack")
+      class UAttackActorComponent* AttackController;
+    ```
+    </details>
+  
 - ## <span style = "color:yellow;">Victim Montage</span>
-  - <img src="Image/" height="300" title="">  
+
+
+  
+> **<h3>Realization</h3>**
+  - ...

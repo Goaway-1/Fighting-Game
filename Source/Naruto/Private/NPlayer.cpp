@@ -160,7 +160,7 @@ void ANPlayer::SetWeapon() {
 	}
 }
 void ANPlayer::Attack() {
-	CurAttackComp->DefaultAttack_KeyDown();
+	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
 void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

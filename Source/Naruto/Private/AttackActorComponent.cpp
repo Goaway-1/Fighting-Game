@@ -4,7 +4,13 @@
 
 UAttackActorComponent::UAttackActorComponent(){
 	PrimaryComponentTick.bCanEverTick = false;
+	SetIsReplicated(true);
 
+	ComboCnt = 1;
+	bAttacking = false;
+	bIsAttackCheck = false;
+	CurKeyUD = EKeyUpDown::EKUD_Default;
+	TmpKeyUD = EKeyUpDown::EKUD_Default;
 }
 void UAttackActorComponent::BeginPlay(){
 	Super::BeginPlay();
@@ -14,30 +20,48 @@ void UAttackActorComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 }
-void UAttackActorComponent::DefaultAttack_KeyDown() {
-	bLMBDown = true;
+void UAttackActorComponent::DefaultAttack_KeyDown(EKeyUpDown KeyUD){
+	TmpKeyUD = KeyUD;
 
 	if (!bAttacking) Attack();
 	else bIsAttackCheck = true;
+}
+void UAttackActorComponent::SetOverlapActors(AActor* actor) {
+	OverlapActors.Add(actor);
+}
+TArray<AActor*> UAttackActorComponent::GetOverlapActors() {
+	return OverlapActors;
+}
+bool UAttackActorComponent::IsAlreadyOverlap(AActor* actor) { 
+	for (int i = 0; i< OverlapActors.Num();i++) { 
+		if (OverlapActors[i] == actor) return true;
+	} 
+	return false;
 }
 void UAttackActorComponent::Attack() {
 	bAttacking = true;
 
 	if (MainAnimInstance) {
-		if (!MainAnimInstance->Montage_IsPlaying(MontageArr[0].MT_Attacker)) {	//공격중이 아닐때 (처음 공격)
+		if (!MainAnimInstance->Montage_IsPlaying(MontageArr[0].MT_Attacker) && !MainAnimInstance->Montage_IsPlaying(MontageArr[0].AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
 			ComboCnt = 1;
 			PlayNetworkMontage(MontageArr[0].MT_Attacker, 1.f, 1);
 		}
-		else PlayNetworkMontage(MontageArr[0].MT_Attacker, 1.f, ComboCnt);
+		else {
+			if (CurKeyUD == EKeyUpDown::EKUD_Up) PlayNetworkMontage(MontageArr[0].AttackSplit.MTUP_Attacker, 1.f, ComboCnt);
+			else if (CurKeyUD == EKeyUpDown::EKUD_Down) PlayNetworkMontage(MontageArr[0].AttackSplit.MTDOWN_Attacker, 1.f, ComboCnt);
+			else PlayNetworkMontage(MontageArr[0].MT_Attacker, 1.f, ComboCnt);
+		}
 	}
 }
 void UAttackActorComponent::EndAttack() {
 	bAttacking = false;
+	CurKeyUD = EKeyUpDown::EKUD_Default;
+	ComboCnt = 1;
 }
 void UAttackActorComponent::AttackInputCheck() {
 	if (bIsAttackCheck) {
 		ComboCnt++;
-		if (ComboCnt > MontageArr[0].ComboCnt) ComboCnt = 1;
+		if (MontageArr[0].splitIdx == ComboCnt) CurKeyUD = TmpKeyUD;
 		bIsAttackCheck = false;
 		Attack();
 	}
@@ -71,4 +95,9 @@ void UAttackActorComponent::ServerPlayMontage_Implementation(UAnimMontage* Mongt
 }
 bool UAttackActorComponent::ServerPlayMontage_Validate(UAnimMontage* Mongtage, float PlayRate, int idx) {
 	return true;
+}
+void UAttackActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(UAttackActorComponent, OverlapActors);
 }

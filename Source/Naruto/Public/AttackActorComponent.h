@@ -23,24 +23,48 @@ public:
 protected:
 	UPROPERTY()
 	UAnimInstance* MainAnimInstance;
-
+	
+#pragma region ATTACK
 public:
-	/** 이거 내일 정리하기 */
-	void DefaultAttack_KeyDown();
-	void Attack();	
+	void DefaultAttack_KeyDown(EKeyUpDown KeyUD);
+	void Attack();
 
 	UFUNCTION(BlueprintCallable)
-	void EndAttack();
+	void EndAttack();						// Reset Attack Combo...
 
 	UFUNCTION(BlueprintCallable)
-	void AttackInputCheck();
+	void AttackInputCheck();				// If input is in, attack the combo
 
-	FName GetAttackMontageSection(int32 Section);
+	/** Get/Set Overlap Actors Method */
+	UFUNCTION()
+	void SetOverlapActors(AActor* actor);
 
-	int16 ComboCnt = 0;
-	bool bAttacking = false;
-	bool bLMBDown = false;
-	bool bIsAttackCheck = false;
+	UFUNCTION()
+	TArray<AActor*> GetOverlapActors();
+
+	UFUNCTION()
+	bool IsAlreadyOverlap(AActor* actor);
+private:
+	FName GetAttackMontageSection(int32 Section);	// Retrun MontageNumber
+
+	UPROPERTY(VisibleAnyWhere)
+	int16 ComboCnt = 0;			
+	
+	UPROPERTY(VisibleAnyWhere)
+	bool bAttacking = false;		// is current Attacking?
+
+	UPROPERTY(VisibleAnyWhere)
+	bool bIsAttackCheck = false;	// In case of attack input during attack
+
+	UPROPERTY(VisibleAnyWhere)
+	EKeyUpDown CurKeyUD;			// Current UP Key Value
+
+	UPROPERTY(VisibleAnyWhere)
+	EKeyUpDown TmpKeyUD;			// Tmp UP Key Value
+
+	UPROPERTY(Replicated, VisibleAnyWhere)
+	TArray<AActor*> OverlapActors;	// OverlapActor's Array
+#pragma endregion
 
 #pragma region MONTAGE
 public:

@@ -2,23 +2,9 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "AttackStruct.h"
 #include "NPlayer.generated.h"
 
-UENUM(BlueprintType)
-enum class EKeyUpDown : uint8 {
-	EKUD_Up				UMETA(DisplayName = "Up"),
-	EKUD_Down			UMETA(DisplayName = "Down"),
-
-	EKUD_Default		UMETA(DisplayName = "Default")
-};
-
-UENUM(BlueprintType)
-enum class EKeyLeftRight : uint8 {
-	EKLR_Right			UMETA(DisplayName = "Right"),	
-	EKLR_Left			UMETA(DisplayName = "Left"),
-	
-	EKLR_Default		UMETA(DisplayName = "Default")
-};
 
 UCLASS()
 class NARUTO_API ANPlayer : public ACharacter
@@ -84,10 +70,12 @@ protected:
 	/** Attack */
 	void Attack();
 
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly,  Category = "Attack", Meta = (AllowPrivateAccess = true))
+	class UAttackActorComponent* CurAttackComp;
 public:
 	virtual void Jump() override;
 	virtual void ResetJumpState() override;
 
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Attack")
-	class UAttackActorComponent* CurAttackComp;
+	UFUNCTION()
+	FORCEINLINE UAttackActorComponent* GetCurAttackComp() {return CurAttackComp;}
 };

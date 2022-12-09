@@ -6,6 +6,22 @@
 #include "GameFramework/Actor.h"
 #include "AttackStruct.generated.h"
 
+UENUM(BlueprintType)
+enum class EKeyUpDown : uint8 {
+	EKUD_Up				UMETA(DisplayName = "Up"),
+	EKUD_Down			UMETA(DisplayName = "Down"),
+
+	EKUD_Default		UMETA(DisplayName = "Default")
+};
+
+UENUM(BlueprintType)
+enum class EKeyLeftRight : uint8 {
+	EKLR_Right			UMETA(DisplayName = "Right"),
+	EKLR_Left			UMETA(DisplayName = "Left"),
+
+	EKLR_Default		UMETA(DisplayName = "Default")
+};
+
 UCLASS()
 class NARUTO_API AAttackStruct : public AActor
 {
@@ -21,6 +37,22 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 };
+USTRUCT(Atomic, BlueprintType)
+struct FAttackSplitMontageStruct
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MTUP_Attacker;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MTUP_Victim;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MTDOWN_Attacker;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MTDOWN_Victim;
+};
+
+
 
 USTRUCT(Atomic, BlueprintType)
 struct FAttackMontageStruct
@@ -31,8 +63,10 @@ public:
 	class UAnimMontage* MT_Attacker;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_Victim;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)   // Split«“ ¿Œµ¶Ω∫
+	int splitIdx;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	int ComboCnt;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float distance;
+	FAttackSplitMontageStruct AttackSplit;
 };

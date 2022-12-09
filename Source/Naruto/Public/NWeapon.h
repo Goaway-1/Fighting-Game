@@ -34,12 +34,12 @@ protected:
 	UPROPERTY(Replicated,EditDefaultsOnly,Category = "Weapon")
 	UStaticMeshComponent* MeshComp;
 
-	/* Set Player's Weapon for Random */
-	//UFUNCTION()
-	//void SetWeaponRandom();
-	
-	UFUNCTION(Server, Reliable)
-	void ServerSetWeaponRandom(EWeaponType ChangeWeaponType);
+	/** If Overlap other Actor */
+	UFUNCTION()
+	void OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UPROPERTY(EditDefaultsOnly, Category = "Attack")
+	class UAttackActorComponent* AttackController;
 public:	
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE EWeaponType GetWeaponType() { return WeaponType; }
