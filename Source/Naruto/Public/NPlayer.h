@@ -10,6 +10,8 @@ UCLASS()
 class NARUTO_API ANPlayer : public ACharacter
 {
 	GENERATED_BODY()
+protected:
+	virtual void BeginPlay() override;
 
 public:
 	ANPlayer();
@@ -18,12 +20,6 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 protected:
-	virtual void BeginPlay() override;
-
-	/** The player moves based on the rotation of the CameraManager */
-	void MoveForward(float Value);
-	void MoveRight(float Value);
-
 	/** MainCameraManager class to find */
 	UPROPERTY(EditDefaultsOnly, Category = "InitSetting")
 	TSubclassOf<AActor> CameraManagerClass;
@@ -32,8 +28,14 @@ protected:
 
 	APlayerController* PlayerControlComp;
 
+#pragma region MOVE
+protected:
+	/** The player moves based on the rotation of the CameraManager */
+	void MoveForward(float Value);
+	void MoveRight(float Value);
+
 	/* Inpressed Keys */
-	UPROPERTY(VisibleAnywhere, Category="Movement")
+	UPROPERTY(VisibleAnywhere, Category = "Movement")
 	EKeyUpDown Key_UD;
 
 	UPROPERTY(VisibleAnywhere, Category = "Movement")
@@ -48,13 +50,22 @@ protected:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerJump();
-	
+
 	FORCEINLINE void SetKeyUpDown(EKeyUpDown newKey) { Key_UD = newKey; }
 	FORCEINLINE void SetKeyLeftRight(EKeyLeftRight newKey) { Key_LR = newKey; }
 
 	FORCEINLINE EKeyUpDown GetKeyUpDown() { return Key_UD; }
 	FORCEINLINE EKeyLeftRight GetKeyLeftRight() { return Key_LR; }
 
+public:
+	virtual void Jump() override;
+	virtual void ResetJumpState() override;
+
+
+#pragma endregion
+
+#pragma region WEAPON
+protected:
 	/* Weapon */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TSubclassOf<AActor> StarterWeaponClass;
@@ -72,10 +83,24 @@ protected:
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly,  Category = "Attack", Meta = (AllowPrivateAccess = true))
 	class UAttackActorComponent* CurAttackComp;
-public:
-	virtual void Jump() override;
-	virtual void ResetJumpState() override;
 
+public:
 	UFUNCTION()
 	FORCEINLINE UAttackActorComponent* GetCurAttackComp() {return CurAttackComp;}
+
+#pragma endregion
+
+#pragma region CHECK_ANOTHER_ACTOR
+protected:
+	UPROPERTY(EditAnywhere, Category = "CheckOverlap", Meta = (AllowPrivateAccess = true))
+	class UCapsuleComponent* CheckOverlapActorsCollision;
+
+public:
+	UFUNCTION()
+	void OnActorOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnActorOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+#pragma endregion
+
 };

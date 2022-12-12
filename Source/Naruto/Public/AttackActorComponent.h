@@ -44,6 +44,14 @@ public:
 
 	UFUNCTION()
 	bool IsAlreadyOverlap(AActor* actor);
+
+	// ResetOverlapActors..
+	UFUNCTION()
+	void ClearOverlapActors();
+
+	/** For Access from NWeapon*/
+	UFUNCTION()
+	FORCEINLINE int16 GetComboCnt() { return ComboCnt; }
 private:
 	FName GetAttackMontageSection(int32 Section);	// Retrun MontageNumber
 
@@ -66,6 +74,26 @@ private:
 	TArray<AActor*> OverlapActors;	// OverlapActor's Array
 #pragma endregion
 
+#pragma region ROTATE
+protected:
+	UPROPERTY(Replicated, VisibleAnyWhere)
+	AActor* InRangeActor;	// OverlapActor's Array
+
+public:
+	UFUNCTION()
+	FORCEINLINE void SetInRangeActor(AActor* Actor) { InRangeActor = Actor; }
+
+	/** Rotate to another Actor.. (Network & MutiCast) 	*/
+	UFUNCTION()
+	void RotateToActor();
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiRotateToActor(FRotator Rot);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerRotateToActor(FRotator Rot);
+
+#pragma endregion
 #pragma region MONTAGE
 public:
 	/** Montage */
@@ -79,9 +107,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate, int idx);
 
+	/** For Access from NWeapon */
+	UFUNCTION()
+	FORCEINLINE FAttackMontageStruct GetActionMontage() { return ActionMontage; }
 protected:
 	/** Montage List */
 	UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
-	TArray<FAttackMontageStruct> MontageArr;
+	FAttackMontageStruct ActionMontage;
 #pragma endregion
 };

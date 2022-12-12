@@ -841,6 +841,7 @@
     - 무기 액터에는 <ins>__"OnComponentBeginOverlap"에 함수를 AddDynamic하여 충돌처리 추가__</ins>
 
   1. 무기가 플레이어와 오버랩되면 Actor가 소유한 AttackComponent의 배열(OverlapActors)에 저장
+      - 서버에서만 진행
   2. __'Set/Get/IsAlreadyOverlap'을__ 하고, 이미 존재한다면 추가 X
 
     <details><summary>CPP File</summary> 
@@ -920,9 +921,227 @@
     ```
     </details>
   
-- ## <span style = "color:yellow;">Victim Montage</span>
-
-
-  
 > **<h3>Realization</h3>**
-  - ...
+  - NULL
+
+## **Day_10**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">Weapon Collision ON/OFF</span>
+  - <img src="Image/WeaponCollisionONOFF.gif" height="300" title="WeaponCollisionONOFF"> 
+  - <img src="Image/WeaponCollisionONOFF.png" height="300" title="WeaponCollisionONOFF"> 
+  - 위 그림과 같이 특정타임에서 노티파이를 실행하여 Weapon의 Collision을 컸다끄며, 끄는 시점에는 OverlapActors 배열을 초기화한다.
+    - <ins>이게 지금 맞는지 확인이 안되네...?  서버에만 실행하는게 맞나?</ins>
+    
+    <details><summary>CPP File</summary> 
+    
+    ```cpp
+    //NWeapon.cpp
+    void ANWeapon::SetCollisionONOFF(bool isSet) {
+      if (HasAuthority()) {
+        if (!isSet) {
+          MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+          UE_LOG(LogTemp, Warning, TEXT("Collision OFF"))
+        }
+        else {
+          MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+          AttackController->ClearOverlapActors();
+          UE_LOG(LogTemp, Warning, TEXT("Collision ON"));
+        }
+      }
+    }
+    ```
+    ```cpp
+    //AttackActorComponent.cpp
+    void UAttackActorComponent::ClearOverlapActors() { 
+      OverlapActors.Reset(); 
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+    
+    ```cpp
+    //NWeapon.h
+    public:
+    UFUNCTION(BlueprintCallable)
+	    void SetCollisionONOFF(bool isSet);
+    ```
+    ```cpp
+    //AttackActorComponent.h
+    public:
+    	// ResetOverlapActors..
+      UFUNCTION()
+      void ClearOverlapActors();
+    ```
+    </details>
+
+> **<h3>Realization</h3>**
+  - AttackCollision의 Reset을 서버에서만 하는게 맞나? 다음 Health Down할때 확인하자.
+
+## **Day_11**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">Victim Montage</span>
+  - <img src="Image/VictimMontage.gif" height="300" title="VictimMontage"> 
+  - Overlap된 Actor에게 <ins>__"Montage, ComboCnt"__</ins> 정보를 넘겨서 몽타주를 실행하도록 한다.
+    - 이때 서버에서만 실행된다.
+
+    <details><summary>Cpp File</summary> 
+    
+    ```cpp
+    //NWeapon.cpp
+    void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+      if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
+        AttackController->SetOverlapActors(OtherActor);
+
+        // 피격 몽타주 실행 :  AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
+        ANPlayer* vitcim = Cast<ANPlayer>(OtherActor);
+        UAnimMontage* mon = OwnPlayer->GetCurAttackComp()->GetActionMontage().MT_Victim;
+        vitcim->GetCurAttackComp()->PlayNetworkMontage(mon,1.f, OwnPlayer->GetCurAttackComp()->GetComboCnt());
+        UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *this->GetOwner()->GetName(), *OtherActor->GetName());
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+    
+    ```cpp
+    //AttackActorComponent.h
+    public:
+    	/** For Access from NWeapon*/
+      UFUNCTION()
+      FORCEINLINE int16 GetComboCnt() { return ComboCnt; }
+
+      UFUNCTION()
+	    FORCEINLINE FAttackMontageStruct GetActionMontage() { return ActionMontage; }
+    ```
+    </details>
+
+> **<h3>Realization</h3>**
+  - Day 10의 AttackCollision의 Reset을 서버에서만 하는게 맞나? -> 맞는듯
+  - 공격할때, 사용자에게 자동으로 Rotate되도록 해야될듯하다.
+    - 단 상대의 좌표를 알아야하는데, 그러면 각 플레이어에게 상대 플레이를 할당해야하는가?
+
+## **Day_12**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">Rotate to another Player (Attacker)</span>
+  - <img src="Image/AutoRotateToAnotherActor.gif" height="300" title="AutoRotateToAnotherActor"> 
+  - 공격 시 일정 범위내의 플레이어를 판단하고, 가장 가까운 플레이어를 향해 회전
+    - Player의 __"UCapsuleComponent(CheckOverlapActorsCollision)"를__ 통해서 일정범위 내의 다른 플레이어를 판단하고, 존재한다면 각 AttackActorComponent의 __"AActor(InRangeActor)"에__ 할당한다.
+      - 이때 InRangeActor는 Replicated...
+    - Attack()메서드가 호출될때마다 타플레이어를 향해 회전하며, 이때 Pitch와 Roll은 고정된다.
+      - SetActorRotation()메서드를 사용하는데, 이는 Local에서만 적용되기 때문에 Multi/Server 메서드를 추가로 생성하여 호출한다.
+
+    <details><summary>Cpp File</summary> 
+    
+    ```cpp
+    //AttackActorComponent.cpp
+    void UAttackActorComponent::Attack() {
+      /** Rotate to another Actor.. (Network & MutiCast) 	*/
+      RotateToActor();
+      ...
+    }
+    void UAttackActorComponent::RotateToActor() {
+      if (Cast<ACharacter>(GetOwner())->IsLocallyControlled() && InRangeActor != nullptr) {
+        UE_LOG(LogTemp, Warning, TEXT("%s is Exist so Attack Roate"), *InRangeActor->GetName());
+
+        /** Rotate (Fixed Roll & Pitch) */
+        FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetOwner()->GetActorLocation(), InRangeActor->GetActorLocation());
+        RotateVal.Roll = GetOwner()->GetActorRotation().Roll;
+        RotateVal.Pitch = GetOwner()->GetActorRotation().Pitch;
+        GetOwner()->SetActorRotation(RotateVal);
+        ServerRotateToActor(RotateVal);
+      }
+    }
+    void UAttackActorComponent::MultiRotateToActor_Implementation(FRotator Rot){
+      if (!Cast<ACharacter>(GetOwner())->IsLocallyControlled()) {
+        GetOwner()->SetActorRotation(Rot);		
+      }
+    }
+    bool UAttackActorComponent::MultiRotateToActor_Validate(FRotator Rot) {
+      return true;
+    }
+    void UAttackActorComponent::ServerRotateToActor_Implementation(FRotator Rot) {
+      MultiRotateToActor(Rot);
+    }
+    bool UAttackActorComponent::ServerRotateToActor_Validate(FRotator Rot) {
+      return true;
+    }
+    ```
+    ```cpp
+    //ANPlayer.cpp
+    ANPlayer::ANPlayer() {
+      /** Check Overlap Anthor Actor */
+      CheckOverlapActorsCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CheckOverlapActorsCollision"));
+      CheckOverlapActorsCollision->SetupAttachment(GetRootComponent());
+      CheckOverlapActorsCollision->SetCapsuleHalfHeight(300.f);
+      CheckOverlapActorsCollision->SetCapsuleRadius(300.f);
+      CheckOverlapActorsCollision->SetVisibility(true);
+      CheckOverlapActorsCollision->OnComponentBeginOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapBegin);
+      CheckOverlapActorsCollision->OnComponentEndOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapEnd);
+    }
+    void ANPlayer::OnActorOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+      if (OtherActor != this) {
+        CurAttackComp->SetInRangeActor(OtherActor);
+        UE_LOG(LogTemp, Warning, TEXT("%s is overlap"), *OtherActor->GetName());
+      }
+    }
+    void ANPlayer::OnActorOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex) {
+      if (OtherActor != this) {
+        CurAttackComp->SetInRangeActor(nullptr);
+        UE_LOG(LogTemp, Warning, TEXT("%s is overlap END"), *OtherActor->GetName());
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+    
+    ```cpp
+    //AttackActorComponent.h
+    protected:
+      UPROPERTY(Replicated, VisibleAnyWhere)
+      AActor* InRangeActor;	// OverlapActor's Array
+
+    public:
+      UFUNCTION()
+      FORCEINLINE void SetInRangeActor(AActor* Actor) { InRangeActor = Actor; }
+
+      /** Rotate to another Actor.. (Network & MutiCast) 	*/
+      UFUNCTION()
+      void RotateToActor();
+
+      UFUNCTION(NetMulticast, Reliable, WithValidation)
+      void MultiRotateToActor(FRotator Rot);
+
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerRotateToActor(FRotator Rot);
+    ```
+    ```cpp
+    //ANPlayer.h
+    protected:
+      UPROPERTY(EditAnywhere, Category = "CheckOverlap", Meta = (AllowPrivateAccess = true))
+      class UCapsuleComponent* CheckOverlapActorsCollision;
+
+    public:
+      UFUNCTION()
+      void OnActorOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+      UFUNCTION()
+      void OnActorOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">Rotate to another Player (Victim)</span>
+  - 공격자가 피격자를 향해 회전할 수 있다면, 피격자도 범위내에 공격자가 있다는 뜻이기에 단순히 RoateToActor()메서드 실행하여 회전한다.
+
+    <details><summary>Cpp File</summary> 
+    
+    ```cpp
+    //NWeapon.cpp
+    void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+	    ...
+		  vitcim->GetCurAttackComp()->RotateToActor();
+    }
+    ```
+    </details>
+
+> **<h3>Realization</h3>**
+  - Rotate to another Player (Attacker) : 추후 플레이어가 여러명인 경우에는 가장 근접한 객체로 바꾸어야함. 

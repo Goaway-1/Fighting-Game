@@ -24,21 +24,24 @@ protected:
 	virtual void PostInitProperties() override;
 	virtual void BeginPlay() override;
 
-	UPROPERTY(Replicated, EditDefaultsOnly, Category = "Weapon")
+	UPROPERTY(VisibleAnywhere)
+	class ANPlayer* OwnPlayer;
+
+	UPROPERTY(Replicated, VisibleAnywhere,Category = "Weapon")
 	EWeaponType WeaponType;
 
 	/* Please Set Weapons Mesh */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TArray<UStaticMesh*> WeaponMeshType;
 
-	UPROPERTY(Replicated,EditDefaultsOnly,Category = "Weapon")
+	UPROPERTY(Replicated, EditDefaultsOnly, Category = "Weapon")
 	UStaticMeshComponent* MeshComp;
 
 	/** If Overlap other Actor */
 	UFUNCTION()
 	void OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
-	UPROPERTY(EditDefaultsOnly, Category = "Attack")
+	UPROPERTY()
 	class UAttackActorComponent* AttackController;
 public:	
 	UFUNCTION(BlueprintCallable)
@@ -46,4 +49,7 @@ public:
 
 	UFUNCTION()
 	void SetWeaponRandom();
+
+	UFUNCTION(BlueprintCallable)
+	void SetCollisionONOFF(bool isSet);
 };

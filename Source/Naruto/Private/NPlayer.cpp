@@ -6,6 +6,7 @@
 #include "NCameraManager.h"
 #include "NGameMode.h"
 #include "NWeapon.h"
+#include "Components/CapsuleComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "AttackActorComponent.h"
 
@@ -45,6 +46,16 @@ ANPlayer::ANPlayer() {
 
 	/* Attack */
 	CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
+
+	//test
+	CheckOverlapActorsCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CheckOverlapActorsCollision"));
+	CheckOverlapActorsCollision->SetupAttachment(GetRootComponent());
+	CheckOverlapActorsCollision->SetCapsuleHalfHeight(300.f);
+	CheckOverlapActorsCollision->SetCapsuleRadius(300.f);
+	CheckOverlapActorsCollision->SetVisibility(true);
+	CheckOverlapActorsCollision->OnComponentBeginOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapBegin);
+	CheckOverlapActorsCollision->OnComponentEndOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapEnd);
+
 }
 void ANPlayer::BeginPlay() {
 	Super::BeginPlay();
@@ -161,6 +172,18 @@ void ANPlayer::SetWeapon() {
 }
 void ANPlayer::Attack() {
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
+}
+void ANPlayer::OnActorOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+	if (OtherActor != this) {
+		CurAttackComp->SetInRangeActor(OtherActor);
+		UE_LOG(LogTemp, Warning, TEXT("%s is overlap"), *OtherActor->GetName());
+	}
+}
+void ANPlayer::OnActorOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex) {
+	if (OtherActor != this) {
+		CurAttackComp->SetInRangeActor(nullptr);
+		UE_LOG(LogTemp, Warning, TEXT("%s is overlap END"), *OtherActor->GetName());
+	}
 }
 void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

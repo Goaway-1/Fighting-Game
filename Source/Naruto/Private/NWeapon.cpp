@@ -19,6 +19,8 @@ void ANWeapon::PostInitProperties() {
 }
 void ANWeapon::BeginPlay(){
 	Super::BeginPlay();
+
+	SetCollisionONOFF(false);
 }
 void ANWeapon::SetWeaponRandom() {
 	if (WeaponMeshType.Num() >= 2) {
@@ -35,13 +37,34 @@ void ANWeapon::SetWeaponRandom() {
 	}
 
 	/** Set AttackController */
-	ANPlayer* OwnPlayer = Cast<ANPlayer>(GetOwner());
+	OwnPlayer = Cast<ANPlayer>(GetOwner());
 	AttackController = OwnPlayer->GetCurAttackComp();
 }
 void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
 		AttackController->SetOverlapActors(OtherActor);
-		UE_LOG(LogTemp, Warning, TEXT("Attack!!! %s"), *OtherActor->GetName());
+
+		// 피격 몽타주 실행 :  AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
+		ANPlayer* vitcim = Cast<ANPlayer>(OtherActor);
+		UAnimMontage* mon = OwnPlayer->GetCurAttackComp()->GetActionMontage().MT_Victim;
+		vitcim->GetCurAttackComp()->PlayNetworkMontage(mon,1.f, OwnPlayer->GetCurAttackComp()->GetComboCnt());
+		vitcim->GetCurAttackComp()->RotateToActor();
+
+		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *this->GetOwner()->GetName(), *OtherActor->GetName());
+	}
+}
+
+void ANWeapon::SetCollisionONOFF(bool isSet) {
+	if (HasAuthority()) {
+		if (!isSet) {
+			MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			UE_LOG(LogTemp, Warning, TEXT("Collision OFF"))
+		}
+		else {
+			MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			AttackController->ClearOverlapActors();
+			UE_LOG(LogTemp, Warning, TEXT("Collision ON"));
+		}
 	}
 }
 void ANWeapon::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
