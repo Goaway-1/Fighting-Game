@@ -9,6 +9,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "AttackActorComponent.h"
+#include "ChacraActorComponent.h"
 
 ANPlayer::ANPlayer() {
 	PrimaryActorTick.bCanEverTick = true;
@@ -44,10 +45,11 @@ ANPlayer::ANPlayer() {
 	/* Weapon */
 	WeaponAttachSocketName = "WeaponSocket";
 
-	/* Attack */
+	/* Attack & Chacra Component */ //test
 	CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
+	CurChacraComp = CreateDefaultSubobject<UChacraActorComponent>(TEXT("ChacraComponent"));
 
-	//test
+	/* Check Another Actor.. */
 	CheckOverlapActorsCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CheckOverlapActorsCollision"));
 	CheckOverlapActorsCollision->SetupAttachment(GetRootComponent());
 	CheckOverlapActorsCollision->SetCapsuleHalfHeight(300.f);
@@ -108,8 +110,11 @@ void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) 
 	PlayerInputComponent->BindAxis("MoveForward", this, &ANPlayer::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &ANPlayer::MoveRight);
 
-	//Attack
-	PlayerInputComponent->BindAction("Attack1", IE_Pressed,this, &ANPlayer::Attack);
+	// Attack
+	PlayerInputComponent->BindAction("Attack", IE_Pressed,this, &ANPlayer::Attack);
+
+	// Chacra
+	PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::Chacra);
 }
 void ANPlayer::MoveForward(float Value) {
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
@@ -172,6 +177,9 @@ void ANPlayer::SetWeapon() {
 }
 void ANPlayer::Attack() {
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
+}
+void ANPlayer::Chacra() {
+	CurChacraComp->UseChacra();
 }
 void ANPlayer::OnActorOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
 	if (OtherActor != this) {

@@ -1,6 +1,8 @@
 #include "AttackActorComponent.h"
+#include "ChacraActorComponent.h"
 #include "NPlayer.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 
 UAttackActorComponent::UAttackActorComponent(){
@@ -53,7 +55,17 @@ void UAttackActorComponent::Attack() {
 
 	/** Play Animation Montage */
 	if (MainAnimInstance) {
-		if (!MainAnimInstance->Montage_IsPlaying(ActionMontage.MT_Attacker) && !MainAnimInstance->Montage_IsPlaying(ActionMontage.AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
+		if (Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling()) {
+			// 공중임
+			UE_LOG(LogTemp, Warning, TEXT("Air Attack"));
+			bAttacking = false; // tmp
+		}
+		else if (Cast<ANPlayer>(GetOwner())->GetCurChacraComp()->GetChacraCnt() > 0) {
+			// 차크라임?
+			UE_LOG(LogTemp, Warning, TEXT("Chacra Attack"));
+			bAttacking = false; // tmp
+		}
+		else if (!MainAnimInstance->Montage_IsPlaying(ActionMontage.MT_Attacker) && !MainAnimInstance->Montage_IsPlaying(ActionMontage.AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
 			ComboCnt = 1;
 			PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, 1);
 		}

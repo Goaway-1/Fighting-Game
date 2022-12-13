@@ -81,7 +81,7 @@ protected:
 	/** Attack */
 	void Attack();
 
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly,  Category = "Attack", Meta = (AllowPrivateAccess = true))
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly,  Category = "Attack")
 	class UAttackActorComponent* CurAttackComp;
 
 public:
@@ -89,6 +89,19 @@ public:
 	FORCEINLINE UAttackActorComponent* GetCurAttackComp() {return CurAttackComp;}
 
 #pragma endregion
+
+#pragma region Chacra
+protected:
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Chacra")
+	class UChacraActorComponent* CurChacraComp;
+
+	void Chacra();
+public:
+	UFUNCTION()
+	FORCEINLINE UChacraActorComponent* GetCurChacraComp() { return CurChacraComp; }
+
+#pragma endregion
+
 
 #pragma region CHECK_ANOTHER_ACTOR
 protected:

@@ -1145,3 +1145,94 @@
 
 > **<h3>Realization</h3>**
   - Rotate to another Player (Attacker) : 추후 플레이어가 여러명인 경우에는 가장 근접한 객체로 바꾸어야함. 
+
+## **Day_13**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">차크라 (Chacra)</span>
+  - 차크라는 대쉬, 공격, 원거리 무기에 추가적인 효과를 준다.
+  - 차크라는 2번 중첩이 가능하며, 사용 후 일정 시간이 지나면 소멸된다.
+    - TimerManager를 사용해서 Delay를 제작하여 리셋
+
+    <details><summary>Cpp File</summary> 
+    
+    ```cpp
+    //ChacraActorComponent.cpp
+    UChacraActorComponent::UChacraActorComponent(){
+      PrimaryComponentTick.bCanEverTick = false;
+      SetIsReplicated(true);
+
+      ChacraCnt = 0;
+    }
+    void UChacraActorComponent::UseChacra() {
+      if (ChacraCnt < 2) {
+        ChacraCnt++;
+        UE_LOG(LogTemp, Warning, TEXT("Chacra : %d"), ChacraCnt);
+        GetWorld()->GetTimerManager().ClearTimer(ResetChacraHandle);
+        GetWorld()->GetTimerManager().SetTimer(ResetChacraHandle, this, &UChacraActorComponent::ResetChacraCnt, 3.f,false);
+      }
+    }
+    void UChacraActorComponent::ResetChacraCnt() {
+      ChacraCnt = 0;
+      UE_LOG(LogTemp, Warning, TEXT("Reset Chacra"));
+    }
+    void UChacraActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+      Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+      DOREPLIFETIME(UChacraActorComponent, ChacraCnt);
+    }
+    ```
+    ```cpp
+    //NPlayer.cpp
+    ANPlayer::ANPlayer() {
+      /* Chacra Component */
+      CurChacraComp = CreateDefaultSubobject<UChacraActorComponent>(TEXT("ChacraComponent"));
+    }
+    void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
+      PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::Chacra);
+    }
+    void ANPlayer::Chacra() {
+      CurChacraComp->UseChacra();
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary> 
+    
+    ```cpp
+    //ChacraActorComponent.cpp
+    protected:
+      UPROPERTY(Replicated, VisibleAnywhere)
+      int8 ChacraCnt;
+
+      UPROPERTY()
+      FTimerHandle ResetChacraHandle;
+
+    public:
+      UFUNCTION()
+      void UseChacra();
+
+      UFUNCTION()
+      void ResetChacraCnt();
+
+      UFUNCTION()
+      FORCEINLINE int8 GetChacraCnt() {return ChacraCnt;}
+    ```
+    ```cpp
+    //NPlayer.h
+    protected:
+      UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Chacra")
+      class UChacraActorComponent* CurChacraComp;
+
+      /** if D Key Down */
+      void Chacra();
+    public:
+      UFUNCTION()
+      FORCEINLINE UChacraActorComponent* GetCurChacraComp() { return CurChacraComp; }
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">점프/차크라 공격</span>
+  - 
+
+
+  
+> **<h3>Realization</h3>**
