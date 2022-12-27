@@ -1230,9 +1230,179 @@
     ```
     </details>
 
-- ## <span style = "color:yellow;">점프/차크라 공격</span>
-  - 
+- ## <span style = "color:yellow;">점프/차크라 공격&대쉬</span>
+  - <img src="Image/KindOfAttack.gif" height="300" title="KindOfAttack"> 
+  - 점프중이거나 차크라가 켜진 상태로 공격이나 차크라가 켜진 상태로 대쉬를 누를때 특별한 행동을 위한 처리
 
+    <details><summary>Cpp File</summary> 
+
+    ```cpp
+    //UAttkackActorComponent.cpp
+    void UAttackActorComponent::Attack() {
+      ...
+      /** Play Animation Montage */
+      if (MainAnimInstance) {
+        if (Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling()) {
+          UE_LOG(LogTemp, Warning, TEXT("Air Attack"));
+          bAttacking = false; 
+        }
+        else if (Cast<ANPlayer>(GetOwner())->GetCurChacraComp()->GetChacraCnt() > 0) {
+          UE_LOG(LogTemp, Warning, TEXT("Chacra Attack"));
+          bAttacking = false; 
+        }
+        else {
+          UE_LOG(LogTemp, Warning, TEXT("Nomal Attack"));
+          ...
+        }
+      }
+    }
+    ```
+    ```cpp
+    // ANPlayer.cpp
+    void ANPlayer::Jump() {
+      if (CurChacraComp->GetChacraCnt() > 0 && IsLocallyControlled()) {
+        // @TODO : Chacra Dash
+      }
+      else{ ... }
+    }
+    ```
+    </details>
+  
+> **<h3>Realization</h3>**
+  - 스킬 사용 고민...
+    1. 컷씬 : 상대방이 맞았을때, 이후 콤보를 애니메이션으로 처리
+    2. 콤보 : 맞았을때, 이후 그냥 두 놈의 애니메이션으로 처리
+ 
+## **Day_14**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">차크라 (Chacra) 점프</span>
+  - GameState에서 PlayerArray를 받아와 상대 액터를 받아온다. 그 후 그 액터로 Rotate하고 대쉬한다.
+    - 본래는 애니메이션으로 처리하고 싶었지만 불가능... (제작X)
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    // ANPlayer.cpp
+    void ANPlayer::Jump() {
+      if (CurChacraComp->GetChacraCnt() > 0) {
+        // @TODO : 로컬은 성공했으나 서버 실패 && 점프후 대쉬 또한 가능하니 상대를 바라보고 대쉬..
+
+        for (auto x : GetWorld()->GetGameState()->PlayerArray){
+          if (this != x->GetPawn()) {
+            UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *x->GetPawn()->GetName());	
+
+            FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), x->GetPawn()->GetActorLocation());
+            RotateVal.Roll = GetActorRotation().Roll;
+            RotateVal.Pitch = GetActorRotation().Pitch;
+            SetActorRotation(RotateVal);
+
+            FVector ForceVec = GetActorForwardVector() * 10000.f;
+            LaunchCharacter(ForceVec, false, false);
+
+            break;
+          }
+        } 
+      }
+    }
+    ```  
+    </details>
+
+- ## <span style = "color:yellow;">캐릭터의 상태 구분</span>
+  - 캐릭터의 현재 상태나 공격횟수, 막기 등등을 하나의 오브젝트에서 관리했으면 좋겠다라는 생각이 들어 PlayerState에 새롭게 추가
+    - 이때 상태는 아래와 같으며, 이는 Player을 거쳐 수정하거나 확인할 수 있도록 구현하였다.
+  - 하지만 서버 관련 문제인지... 알 수 없는 문제로 자꾸 nullptr이 반환되는 것을 확인하여서 조치중에서 있다.
+    - 해결 1번 : Player에 접근하지 않고, 자기 자신을 바로 접근하면 되지 않나..?
+
+      |상태들...||||
+      |:--:|:--:|:--:|:--:|
+      |피격|일반 공격|스킬 공격(2개)|막기|
+      |정지|이동|차크라 대쉬|차크라 회복|
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //NPlayerState.cpp
+    #include "NPlayerState.h"
+    #include "Net/UnrealNetwork.h"
+
+    ANPlayerState::ANPlayerState() {
+      SetPlayerCondition(EPlayerCondition::EPC_Idle);
+    }
+
+    void ANPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const{
+      Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+      DOREPLIFETIME(ANPlayerState, PlayerCondition);
+    }
+    ```  
+    ```cpp
+    // AttackActorComponent.cpp
+    // Owner의 PlayerState를 불러와 사용... 
+    void UAttackActorComponent::Attack() {
+      ...
+      if (MainAnimInstance) {
+        ...
+        if (isFalling) {
+          CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Attack); //ERROR
+
+          EndAttack(); // 임시 (삭제)
+        }
+        else if (ChacraCom->GetChacraCnt() > 0) {
+          CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Skill); //ERROR
+          ...
+        }
+        else {
+          CurOwner->GetPlayerCondition()-> SetPlayerCondition(EPlayerCondition::EPC_Attack); //ERROR
+          ...
+        }
+      }
+    }
+    void UAttackActorComponent::EndAttack() {
+      CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Idle); //ERROR
+      ...
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayerState.h
+    UENUM(BlueprintType)
+    enum class EPlayerCondition : uint8 {
+      EPC_Idle			UMETA(DisplayName = "Idle"),
+      EPC_Hited			UMETA(DisplayName = "Hited"),
+      EPC_Parry			UMETA(DisplayName = "Parry"),
+      EPC_Charge			UMETA(DisplayName = "Charge"),
+      EPC_Dash			UMETA(DisplayName = "Dash"),
+      EPC_Attack			UMETA(DisplayName = "Attack"),
+
+      EPC_Skill			UMETA(DisplayName = "Skill")
+    };
+
+    UCLASS()
+    class NARUTO_API ANPlayerState : public APlayerState
+    {
+      GENERATED_BODY()
+
+    public:
+      ANPlayerState();
+
+      virtual void GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const override;
+
+      UFUNCTION()
+      FORCEINLINE void SetPlayerCondition(EPlayerCondition NewCondition) { PlayerCondition = NewCondition;}
+
+      UFUNCTION()
+      FORCEINLINE EPlayerCondition GetPlayerCondition() {return PlayerCondition; }
+    protected:
+      UPROPERTY(Replicated, VisibleAnywhere, Category="State")
+      EPlayerCondition PlayerCondition;
+    };
+    ```  
+    </details>
 
   
 > **<h3>Realization</h3>**
+  - 서버에서는 상대 컨트롤러를 얻어올 수 없다는 것을 명심!
+  - 스킬은 상대방이 피격 여부에 따라 이후 콤보는 자동으로 진행
+    - 피격자도 마찬가지

@@ -1,5 +1,6 @@
 #include "AttackActorComponent.h"
 #include "ChacraActorComponent.h"
+#include "NPlayerState.h"
 #include "NPlayer.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -20,7 +21,6 @@ UAttackActorComponent::UAttackActorComponent(){
 }
 void UAttackActorComponent::BeginPlay(){
 	Super::BeginPlay();
-
 }
 void UAttackActorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction){
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -55,28 +55,44 @@ void UAttackActorComponent::Attack() {
 
 	/** Play Animation Montage */
 	if (MainAnimInstance) {
-		if (Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling()) {
-			// 공중임
-			UE_LOG(LogTemp, Warning, TEXT("Air Attack"));
-			bAttacking = false; // tmp
+		UChacraActorComponent* ChacraCom = CurOwner->GetCurChacraComp();
+		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
+
+		if (isFalling) {
+			CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Attack); //ERROR
+
+			EndAttack(); // 임시 (삭제)
 		}
-		else if (Cast<ANPlayer>(GetOwner())->GetCurChacraComp()->GetChacraCnt() > 0) {
-			// 차크라임?
-			UE_LOG(LogTemp, Warning, TEXT("Chacra Attack"));
-			bAttacking = false; // tmp
-		}
-		else if (!MainAnimInstance->Montage_IsPlaying(ActionMontage.MT_Attacker) && !MainAnimInstance->Montage_IsPlaying(ActionMontage.AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
-			ComboCnt = 1;
-			PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, 1);
+		else if (ChacraCom->GetChacraCnt() > 0) {
+			CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Skill); //ERROR
+			if(ChacraCom->GetChacraCnt() == 1) {
+				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
+				PlayNetworkMontage(ActionMontage.ChacraAttack.MTChacra_Attacker[0], 1.f, true);
+				ChacraCom->ResetChacraCnt();
+			}
+			else {
+				UE_LOG(LogTemp, Warning, TEXT("Chacra2 Attack"));
+				ChacraCom->ResetChacraCnt();
+			}
+
+			EndAttack(); // 임시 (삭제)
 		}
 		else {
-			if (CurKeyUD == EKeyUpDown::EKUD_Up) PlayNetworkMontage(ActionMontage.AttackSplit.MTUP_Attacker, 1.f, ComboCnt);
-			else if (CurKeyUD == EKeyUpDown::EKUD_Down) PlayNetworkMontage(ActionMontage.AttackSplit.MTDOWN_Attacker, 1.f, ComboCnt);
-			else PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, ComboCnt);
+			CurOwner->GetPlayerCondition()-> SetPlayerCondition(EPlayerCondition::EPC_Attack); //ERROR
+			if (!MainAnimInstance->Montage_IsPlaying(ActionMontage.MT_Attacker) && !MainAnimInstance->Montage_IsPlaying(ActionMontage.AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
+				ComboCnt = 1;
+				PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, false, 1);
+			}
+			else {
+				if (CurKeyUD == EKeyUpDown::EKUD_Up) PlayNetworkMontage(ActionMontage.AttackSplit.MTUP_Attacker, 1.f, false, ComboCnt);
+				else if (CurKeyUD == EKeyUpDown::EKUD_Down) PlayNetworkMontage(ActionMontage.AttackSplit.MTDOWN_Attacker, 1.f, false, ComboCnt);
+				else PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, false, ComboCnt);
+			}
 		}
 	}
 }
 void UAttackActorComponent::EndAttack() {
+	CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Idle); //ERROR
 	bAttacking = false;
 	CurKeyUD = EKeyUpDown::EKUD_Default;
 	ComboCnt = 1;
@@ -92,31 +108,33 @@ void UAttackActorComponent::AttackInputCheck() {
 FName UAttackActorComponent::GetAttackMontageSection(int32 Section) {
 	return FName(*FString::Printf(TEXT("Attack%d"), Section));
 }
-void UAttackActorComponent::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, int idx) {
+void UAttackActorComponent::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
 	//if (Cast<ACharacter>(GetOwner())->IsLocallyControlled()) {
-		if (MainAnimInstance) {
-			MainAnimInstance->Montage_Play(Mongtage, PlayRate);
+	if (MainAnimInstance) {
+		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
+		if(!isSkill){
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
+	}
 
-		ServerPlayMontage(Mongtage,PlayRate,idx);
-	//}
+	ServerPlayMontage(Mongtage, PlayRate, isSkill,idx);
 }
-void UAttackActorComponent::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongtage, float PlayRate, int idx) {
-	//if (!Cast<ACharacter>(GetOwner())->IsLocallyControlled()) {
-		if (MainAnimInstance) {
-			MainAnimInstance->Montage_Play(Mongtage, PlayRate);
+void UAttackActorComponent::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
+	//if (!Cast<ACharacter>(GetOwner())->IsLocallyControlled()) 
+	if (MainAnimInstance) {
+		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
+		if (!isSkill) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
-	//}
+	}
 }
-bool UAttackActorComponent::MultiPlayNetworkMontage_Validate(UAnimMontage* Mongtage, float PlayRate, int idx) {
+bool UAttackActorComponent::MultiPlayNetworkMontage_Validate(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
 	return true;
 }
-void UAttackActorComponent::ServerPlayMontage_Implementation(UAnimMontage* Mongtage, float PlayRate, int idx) {
-	MultiPlayNetworkMontage(Mongtage, PlayRate, idx);
+void UAttackActorComponent::ServerPlayMontage_Implementation(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
+	MultiPlayNetworkMontage(Mongtage, PlayRate, isSkill,idx);
 }
-bool UAttackActorComponent::ServerPlayMontage_Validate(UAnimMontage* Mongtage, float PlayRate, int idx) {
+bool UAttackActorComponent::ServerPlayMontage_Validate(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
 	return true;
 }
 void UAttackActorComponent::RotateToActor() {

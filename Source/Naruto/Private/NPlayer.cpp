@@ -7,9 +7,12 @@
 #include "NGameMode.h"
 #include "NWeapon.h"
 #include "Components/CapsuleComponent.h"
+#include "GameFramework/GameState.h"
+#include "GameFramework/PlayerState.h"
 #include "Net/UnrealNetwork.h"
 #include "AttackActorComponent.h"
 #include "ChacraActorComponent.h"
+#include "NPlayerState.h"
 
 ANPlayer::ANPlayer() {
 	PrimaryActorTick.bCanEverTick = true;
@@ -57,7 +60,6 @@ ANPlayer::ANPlayer() {
 	CheckOverlapActorsCollision->SetVisibility(true);
 	CheckOverlapActorsCollision->OnComponentBeginOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapBegin);
 	CheckOverlapActorsCollision->OnComponentEndOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapEnd);
-
 }
 void ANPlayer::BeginPlay() {
 	Super::BeginPlay();
@@ -84,10 +86,12 @@ void ANPlayer::BeginPlay() {
 	SetWeapon();
 
 	/* Attack */
-	CurAttackComp->SetAnimInstance(GetMesh()->GetAnimInstance());
+	CurAttackComp->SetInit(this,GetMesh()->GetAnimInstance());
 }
 void ANPlayer::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
+
+	CurPlayerState = Cast<ANPlayerState>(GetPlayerState());	//ERROR
 }
 void ANPlayer::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
@@ -104,7 +108,7 @@ void ANPlayer::Tick(float DeltaTime) {
 void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
 
-	PlayerInputComponent->BindAction("Jump", IE_Pressed,this, &ANPlayer::Jump);
+	PlayerInputComponent->BindAction("Jump", IE_Pressed,this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released,this, &ACharacter::StopJumping);
 
 	PlayerInputComponent->BindAxis("MoveForward", this, &ANPlayer::MoveForward);
@@ -133,21 +137,45 @@ void ANPlayer::MoveRight(float Value) {
 	else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
 }
 void ANPlayer::Jump() {
-	if (!HasAuthority()) {
-		ServerJump();
+	if (CurChacraComp->GetChacraCnt() > 0) {
+		// @TODO : 로컬은 성공했으나 서버 실패 && 점프후 대쉬 또한 가능하니 상대를 바라보고 대쉬..
+
+		/*for (auto x : GetWorld()->GetGameState()->PlayerArray) {
+			if (this != x->GetPawn()) {
+				UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *x->GetPawn()->GetName());
+
+				FVector vec = x->GetPawn()->GetActorLocation();
+				vec.X -= 100.f;
+				SetActorLocation(vec);
+
+				FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), x->GetPawn()->GetActorLocation());
+				RotateVal.Roll = GetActorRotation().Roll;
+				RotateVal.Pitch = GetActorRotation().Pitch;
+				SetActorRotation(RotateVal);
+
+				CurChacraComp->ResetChacraCnt();
+
+				break;
+			}
+		}*/
 	}
-
-	if (JumpCurrentCount++ < 2) {
-		/** for Animation */
-		if (JumpCurrentCount == 2) {
-			GetMovementComponent()->StopMovementImmediately();
-			bIsDoubleJump = true;
+	else {
+		if (!HasAuthority()) {
+			ServerJump();
 		}
-		else bIsDoubleJump = false;
 
-		FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
-		ForceVec.Z = 1400.f;
-		LaunchCharacter(ForceVec, false, false);
+		if (JumpCurrentCount++ < 2) {
+			/** for Animation */
+			if (JumpCurrentCount == 2) {
+				GetMovementComponent()->StopMovementImmediately();
+				bIsDoubleJump = true;
+			}
+			else bIsDoubleJump = false;
+
+			FVector ForceVec = (GetActorUpVector() * (JumpMovementForce - GetVelocity().Size())) + (GetActorForwardVector() * (JumpMovementForce - GetVelocity().Size()));
+			ForceVec.Z = 1400.f;
+			LaunchCharacter(ForceVec, false, false);
+		}
 	}
 }
 void ANPlayer::ServerJump_Implementation() {

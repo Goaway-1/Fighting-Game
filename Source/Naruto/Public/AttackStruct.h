@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "AttackStruct.generated.h"
 
+
 UENUM(BlueprintType)
 enum class EKeyUpDown : uint8 {
 	EKUD_Up				UMETA(DisplayName = "Up"),
@@ -37,6 +38,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 };
+
+/** 상/하 공격으로 구분되는 몽타주 */
 USTRUCT(Atomic, BlueprintType)
 struct FAttackSplitMontageStruct
 {
@@ -52,8 +55,20 @@ public:
 	class UAnimMontage* MTDOWN_Victim;
 };
 
+USTRUCT(Atomic, BlueprintType)
+struct FChacraAttackMontageStruct
+{
+	GENERATED_BODY()
+public:
+    /** 2개로 고정 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<class UAnimMontage*> MTChacra_Attacker;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<class UAnimMontage*> MTChacra_Victim;
+};
 
+/** 공격 몽타주 */
 USTRUCT(Atomic, BlueprintType)
 struct FAttackMontageStruct
 {
@@ -69,4 +84,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FAttackSplitMontageStruct AttackSplit;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FChacraAttackMontageStruct ChacraAttack;
 };

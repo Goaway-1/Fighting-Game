@@ -26,6 +26,7 @@ void UChacraActorComponent::UseChacra() {
 }
 void UChacraActorComponent::ResetChacraCnt() {
 	ChacraCnt = 0;
+	GetWorld()->GetTimerManager().ClearTimer(ResetChacraHandle);
 	UE_LOG(LogTemp, Warning, TEXT("Reset Chacra"));
 }
 void UChacraActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {

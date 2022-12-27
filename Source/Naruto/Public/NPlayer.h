@@ -5,7 +5,6 @@
 #include "AttackStruct.h"
 #include "NPlayer.generated.h"
 
-
 UCLASS()
 class NARUTO_API ANPlayer : public ACharacter
 {
@@ -27,6 +26,12 @@ protected:
 	class ANCameraManager* CameraManager;
 
 	APlayerController* PlayerControlComp;
+
+	class ANPlayerState* CurPlayerState;
+
+public:
+	UFUNCTION()
+	FORCEINLINE ANPlayerState* GetPlayerCondition() { return CurPlayerState; }
 
 #pragma region MOVE
 protected:
@@ -102,6 +107,15 @@ public:
 
 #pragma endregion
 
+//public:
+//	UPROPERTY(EditDefaultsOnly, Category = "InitSetting")
+//	EPlayerState PlayerState;
+//
+//	UFUNCTION()
+//	FORCEINLINE void SetPlayerState(EPlayerState state) { PlayerState = state; }
+//
+//	UFUNCTION()
+//	FORCEINLINE EPlayerState GetPlayerState() { return PlayerState; }
 
 #pragma region CHECK_ANOTHER_ACTOR
 protected:

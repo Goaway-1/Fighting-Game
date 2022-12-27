@@ -23,6 +23,12 @@ public:
 protected:
 	UPROPERTY()
 	UAnimInstance* MainAnimInstance;
+
+	UPROPERTY()
+	class ANPlayer* CurOwner;
+
+public:
+	FORCEINLINE void SetInit(ANPlayer* player, UAnimInstance* AnimInst) { CurOwner = player; MainAnimInstance = AnimInst; }
 	
 #pragma region ATTACK
 public:
@@ -96,16 +102,13 @@ public:
 #pragma endregion
 #pragma region MONTAGE
 public:
-	/** Montage */
-	FORCEINLINE void SetAnimInstance(UAnimInstance* AnimInst) { MainAnimInstance = AnimInst; }
-
-	void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, int idx);
+	void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
 
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, int idx);
+	void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate, int idx);
+	void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
 
 	/** For Access from NWeapon */
 	UFUNCTION()

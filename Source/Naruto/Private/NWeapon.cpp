@@ -45,9 +45,11 @@ void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 		AttackController->SetOverlapActors(OtherActor);
 
 		// 피격 몽타주 실행 :  AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
+		// 스킬 여부 판단
 		ANPlayer* vitcim = Cast<ANPlayer>(OtherActor);
+		// if(스킬) = 스킬,,,
 		UAnimMontage* mon = OwnPlayer->GetCurAttackComp()->GetActionMontage().MT_Victim;
-		vitcim->GetCurAttackComp()->PlayNetworkMontage(mon,1.f, OwnPlayer->GetCurAttackComp()->GetComboCnt());
+		vitcim->GetCurAttackComp()->PlayNetworkMontage(mon,1.f, false,OwnPlayer->GetCurAttackComp()->GetComboCnt());
 		vitcim->GetCurAttackComp()->RotateToActor();
 
 		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *this->GetOwner()->GetName(), *OtherActor->GetName());
