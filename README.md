@@ -1401,8 +1401,127 @@
     ```  
     </details>
 
-  
 > **<h3>Realization</h3>**
   - 서버에서는 상대 컨트롤러를 얻어올 수 없다는 것을 명심!
   - 스킬은 상대방이 피격 여부에 따라 이후 콤보는 자동으로 진행
     - 피격자도 마찬가지
+
+## **Day_15**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">캐릭터의 상태 구분 (수정)</span>
+  - 이전 PlayerState에서 캐릭터의 상태를 관리했는데, 서버 관련해서 어려움을 겪어서 그냥 Player클래스에서 선언하도록 수정하고 Replicated선언..!
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //NPlayer.cpp
+    void UAttackActorComponent::EndAttack(ANPlayer* player) {
+      CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Idle);   // 이처럼 사용한다.
+      ...
+    }
+    ```
+    </details>    
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayer.h
+    public:
+      UFUNCTION()
+      FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
+
+      UFUNCTION()
+      FORCEINLINE void SetPlayerCondition(EPlayerCondition NewCondition) { PlayerCondition = NewCondition; }
+
+    protected:
+      UPROPERTY(Replicated,VisibleAnywhere, Category = "Condition")
+      EPlayerCondition PlayerCondition;
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">바꿔치기(SideStep)</span>
+  - <img src="Image/SideStep.gif" height="300" title="SideStep"> 
+  - 상대방의 공격에 의해 피격중일때, 사용할 수 있는 회피로 상대방의 뒤쪽으로 순간이동한다.
+    - 뒤로 이동하기 위해서 <ins>상대방의 '위치 벡터' - '방향(후면) 벡터'을 사용하여 좌표를 지정하였다.</ins>
+  - 현재는 시연 및 사용을 위해서 일정 범위 내에 상대가 있을때 사용할 수 있도록 설계하였으며, 추후 피격시에만 사용 가능하도록 수정할 것이다.
+  - 이때 회피기의 사용횟수는 최대 4번으로 고정되며, 사용후 일정시간이 지나면 "RecoverSideStepCnt()"메서드에 타이머를 적용하여 회복하도록한다.
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //NPlayer.cpp
+    void ANPlayer::SideStep() {
+      if(!HasAuthority()){
+        ServerSideStep();
+      }
+      else{	
+        AActor* Other = CurAttackComp->GetInRangeActor();
+        /* TODO: 맞고 있을때만 사용 가능하도록 조정
+        *if(!IsPlayerCondition(EPlayerCondition::EPC_Hited) || OtherA->GetInRangeActor() == nullptr || SideStepCnt < 0) return; */
+        if (Other == nullptr || SideStepCnt <= 0) return;
+
+        FVector VecVal = Other->GetActorLocation() - (Other->GetActorForwardVector() * 100.f);
+        SetActorLocation(VecVal);
+
+        FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), Other->GetActorLocation());
+        RotateVal.Roll = GetActorRotation().Roll;
+        RotateVal.Pitch = GetActorRotation().Pitch;
+        SetActorRotation(RotateVal);
+        ClientSideStep(RotateVal);
+        SideStepCnt--;
+
+        GetWorld()->GetTimerManager().ClearTimer(SideStepHandle);
+        GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
+      }
+    }
+    void ANPlayer::ClientSideStep_Implementation(FRotator rot) {
+      SetActorRotation(rot);
+    }
+    void ANPlayer::ServerSideStep_Implementation() {
+      SideStep();
+    }
+    bool ANPlayer::ServerSideStep_Validate() {
+      return true;
+    }
+    void ANPlayer::RecoverSideStepCnt() {
+      if (++SideStepCnt < SideStepMaxCnt) {
+        UE_LOG(LogTemp, Warning, TEXT("SideStepCnt %d"), SideStepCnt);
+        GetWorld()->GetTimerManager().ClearTimer(SideStepHandle);
+        GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
+      }
+    }
+    void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+      ...
+      DOREPLIFETIME(ANPlayer, SideStepCnt);
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayer.h
+    protected:
+      UPROPERTY(Replicated, VisibleAnywhere)
+      int8 SideStepCnt = 4;
+
+      int8 SideStepMaxCnt = 4;
+
+      UPROPERTY()
+      FTimerHandle SideStepHandle;
+
+      UFUNCTION()
+      void SideStep();
+
+      UFUNCTION()
+      void RecoverSideStepCnt();							// Recover Side Step's Count (Timer)
+      
+      UFUNCTION(Client, Reliable)
+      void ClientSideStep(FRotator rot);					// For Client Rotation
+
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerSideStep();								// For Server Move & Rot
+    ```
+    </details>
+
+> **<h3>Realization</h3>**
+  - 각 행동을 취할때 상태를 추가적으로 설정해주어야한다.
+  - 바꿔치기를 피격중에만 가능하도록 추후 수정이 필요하다.

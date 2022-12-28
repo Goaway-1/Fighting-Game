@@ -60,6 +60,9 @@ ANPlayer::ANPlayer() {
 	CheckOverlapActorsCollision->SetVisibility(true);
 	CheckOverlapActorsCollision->OnComponentBeginOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapBegin);
 	CheckOverlapActorsCollision->OnComponentEndOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapEnd);
+
+	/* Set Condition */
+	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 }
 void ANPlayer::BeginPlay() {
 	Super::BeginPlay();
@@ -90,8 +93,6 @@ void ANPlayer::BeginPlay() {
 }
 void ANPlayer::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
-
-	CurPlayerState = Cast<ANPlayerState>(GetPlayerState());	//ERROR
 }
 void ANPlayer::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
@@ -116,6 +117,7 @@ void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) 
 
 	// Attack
 	PlayerInputComponent->BindAction("Attack", IE_Pressed,this, &ANPlayer::Attack);
+	PlayerInputComponent->BindAction("SideStep", IE_Pressed,this, &ANPlayer::SideStep);
 
 	// Chacra
 	PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::Chacra);
@@ -221,9 +223,52 @@ void ANPlayer::OnActorOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 		UE_LOG(LogTemp, Warning, TEXT("%s is overlap END"), *OtherActor->GetName());
 	}
 }
+void ANPlayer::SideStep() {
+	if(!HasAuthority()){
+		ServerSideStep();
+	}
+	else{	
+		AActor* Other = CurAttackComp->GetInRangeActor();
+		/* TODO: 맞고 있을때만 사용 가능하도록 조정
+		*if(!IsPlayerCondition(EPlayerCondition::EPC_Hited) || OtherA->GetInRangeActor() == nullptr || SideStepCnt < 0) return;
+		*/
+		if (Other == nullptr || SideStepCnt <= 0) return;
+
+		FVector VecVal = Other->GetActorLocation() - (Other->GetActorForwardVector() * 100.f);
+		SetActorLocation(VecVal);
+
+		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), Other->GetActorLocation());
+		RotateVal.Roll = GetActorRotation().Roll;
+		RotateVal.Pitch = GetActorRotation().Pitch;
+		SetActorRotation(RotateVal);
+		ClientSideStep(RotateVal);
+		SideStepCnt--;
+
+		GetWorld()->GetTimerManager().ClearTimer(SideStepHandle);
+		GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
+	}
+}
+void ANPlayer::ClientSideStep_Implementation(FRotator rot) {
+	SetActorRotation(rot);
+}
+void ANPlayer::ServerSideStep_Implementation() {
+	SideStep();
+}
+bool ANPlayer::ServerSideStep_Validate() {
+	return true;
+}
+void ANPlayer::RecoverSideStepCnt() {
+	if (++SideStepCnt < SideStepMaxCnt) {
+		UE_LOG(LogTemp, Warning, TEXT("SideStepCnt %d"), SideStepCnt);
+		GetWorld()->GetTimerManager().ClearTimer(SideStepHandle);
+		GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
+	}
+}
 void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ANPlayer, CurrentWeapon);
 	DOREPLIFETIME(ANPlayer, bIsDoubleJump);
+	DOREPLIFETIME(ANPlayer, PlayerCondition);
+	DOREPLIFETIME(ANPlayer, SideStepCnt);
 }

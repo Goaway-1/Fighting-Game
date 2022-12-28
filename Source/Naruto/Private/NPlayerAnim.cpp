@@ -1,5 +1,6 @@
 #include "NPlayerAnim.h"
 #include "NPlayer.h"
+//#include "Net/UnrealNetwork.h"
 
 void UNPlayerAnim::NativeInitializeAnimation() {
 	if (!Player) Player = Cast<ANPlayer>(TryGetPawnOwner());
@@ -7,11 +8,10 @@ void UNPlayerAnim::NativeInitializeAnimation() {
 void UNPlayerAnim::NativeUpdateAnimation(float DeltaSeconds) {
 	Super::NativeUpdateAnimation(DeltaSeconds);
 
-	/*if (Player) {
-		FVector Speed = Player->GetVelocity();
-		FVector LateralSpeed = FVector(Speed.X, Speed.Y, 0.f);
-		MovementSpeed = LateralSpeed.Size();
-
-		//bisjumping = Player->GetMovementComponent()->IsFalling();
-	}*/
 }
+
+//void UNPlayerAnim::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+//	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+//
+//	DOREPLIFETIME(UNPlayerAnim, Player);
+//}

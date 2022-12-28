@@ -5,6 +5,20 @@
 #include "AttackStruct.h"
 #include "NPlayer.generated.h"
 
+
+UENUM(BlueprintType)
+enum class EPlayerCondition : uint8 {
+	EPC_Idle			UMETA(DisplayName = "Idle"),
+	EPC_Hited			UMETA(DisplayName = "Hited"),
+	EPC_Parry			UMETA(DisplayName = "Parry"),
+	EPC_Charge			UMETA(DisplayName = "Charge"),
+	EPC_Dash			UMETA(DisplayName = "Dash"),
+	EPC_Jump			UMETA(DisplayName = "Jump"),
+	EPC_Attack			UMETA(DisplayName = "Attack"),
+	EPC_JAttack			UMETA(DisplayName = "JAttack"),
+	EPC_Skill			UMETA(DisplayName = "Skill")
+};
+
 UCLASS()
 class NARUTO_API ANPlayer : public ACharacter
 {
@@ -27,11 +41,21 @@ protected:
 
 	APlayerController* PlayerControlComp;
 
-	class ANPlayerState* CurPlayerState;
-
+#pragma region PLAYERCONDITION
 public:
 	UFUNCTION()
-	FORCEINLINE ANPlayerState* GetPlayerCondition() { return CurPlayerState; }
+	FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
+
+	UFUNCTION()
+	FORCEINLINE void SetPlayerCondition(EPlayerCondition NewCondition) { PlayerCondition = NewCondition; }
+
+	UFUNCTION()
+	FORCEINLINE bool IsPlayerCondition(EPlayerCondition Condition) { return (PlayerCondition == Condition); }
+
+protected:
+	UPROPERTY(Replicated,VisibleAnywhere, Category = "Condition")
+	EPlayerCondition PlayerCondition;
+#pragma endregion
 
 #pragma region MOVE
 protected:
@@ -66,6 +90,29 @@ public:
 	virtual void Jump() override;
 	virtual void ResetJumpState() override;
 
+#pragma endregion
+
+#pragma region SIDESTEP
+protected:
+	UPROPERTY(Replicated, VisibleAnywhere)
+	int8 SideStepCnt = 4;
+
+	int8 SideStepMaxCnt = 4;
+
+	UPROPERTY()
+	FTimerHandle SideStepHandle;
+
+	UFUNCTION()
+	void SideStep();
+
+	UFUNCTION()
+	void RecoverSideStepCnt();							// Recover Side Step's Count (Timer)
+	
+	UFUNCTION(Client, Reliable)
+	void ClientSideStep(FRotator rot);					// For Client Rotation
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSideStep();								// For Server Move & Rot
 
 #pragma endregion
 
@@ -106,16 +153,6 @@ public:
 	FORCEINLINE UChacraActorComponent* GetCurChacraComp() { return CurChacraComp; }
 
 #pragma endregion
-
-//public:
-//	UPROPERTY(EditDefaultsOnly, Category = "InitSetting")
-//	EPlayerState PlayerState;
-//
-//	UFUNCTION()
-//	FORCEINLINE void SetPlayerState(EPlayerState state) { PlayerState = state; }
-//
-//	UFUNCTION()
-//	FORCEINLINE EPlayerState GetPlayerState() { return PlayerState; }
 
 #pragma region CHECK_ANOTHER_ACTOR
 protected:

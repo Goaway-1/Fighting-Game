@@ -58,13 +58,13 @@ void UAttackActorComponent::Attack() {
 		UChacraActorComponent* ChacraCom = CurOwner->GetCurChacraComp();
 		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 
-		if (isFalling) {
-			CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Attack); //ERROR
+		if (isFalling){
+			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
 
 			EndAttack(); // 임시 (삭제)
 		}
 		else if (ChacraCom->GetChacraCnt() > 0) {
-			CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Skill); //ERROR
+			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill);
 			if(ChacraCom->GetChacraCnt() == 1) {
 				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
 				PlayNetworkMontage(ActionMontage.ChacraAttack.MTChacra_Attacker[0], 1.f, true);
@@ -78,7 +78,7 @@ void UAttackActorComponent::Attack() {
 			EndAttack(); // 임시 (삭제)
 		}
 		else {
-			CurOwner->GetPlayerCondition()-> SetPlayerCondition(EPlayerCondition::EPC_Attack); //ERROR
+			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
 			if (!MainAnimInstance->Montage_IsPlaying(ActionMontage.MT_Attacker) && !MainAnimInstance->Montage_IsPlaying(ActionMontage.AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
 				ComboCnt = 1;
 				PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, false, 1);
@@ -92,7 +92,7 @@ void UAttackActorComponent::Attack() {
 	}
 }
 void UAttackActorComponent::EndAttack() {
-	CurOwner->GetPlayerCondition()->SetPlayerCondition(EPlayerCondition::EPC_Idle); //ERROR
+	CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Idle); 
 	bAttacking = false;
 	CurKeyUD = EKeyUpDown::EKUD_Default;
 	ComboCnt = 1;

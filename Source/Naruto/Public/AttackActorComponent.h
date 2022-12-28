@@ -62,7 +62,7 @@ private:
 	FName GetAttackMontageSection(int32 Section);	// Retrun MontageNumber
 
 	UPROPERTY(VisibleAnyWhere)
-	int16 ComboCnt = 0;			
+	int16 ComboCnt = 1;			
 	
 	UPROPERTY(VisibleAnyWhere)
 	bool bAttacking = false;		// is current Attacking?
@@ -88,6 +88,9 @@ protected:
 public:
 	UFUNCTION()
 	FORCEINLINE void SetInRangeActor(AActor* Actor) { InRangeActor = Actor; }
+
+	UFUNCTION()
+	FORCEINLINE AActor* GetInRangeActor() { return InRangeActor; }
 
 	/** Rotate to another Actor.. (Network & MutiCast) 	*/
 	UFUNCTION()
