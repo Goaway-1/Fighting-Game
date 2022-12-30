@@ -13,6 +13,7 @@
 #include "AttackActorComponent.h"
 #include "ChacraActorComponent.h"
 #include "NPlayerState.h"
+#include "DrawDebugHelpers.h"
 
 ANPlayer::ANPlayer() {
 	PrimaryActorTick.bCanEverTick = true;
@@ -48,18 +49,9 @@ ANPlayer::ANPlayer() {
 	/* Weapon */
 	WeaponAttachSocketName = "WeaponSocket";
 
-	/* Attack & Chacra Component */ //test
+	/* Attack & Chacra Component */ 
 	CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
 	CurChacraComp = CreateDefaultSubobject<UChacraActorComponent>(TEXT("ChacraComponent"));
-
-	/* Check Another Actor.. */
-	CheckOverlapActorsCollision = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CheckOverlapActorsCollision"));
-	CheckOverlapActorsCollision->SetupAttachment(GetRootComponent());
-	CheckOverlapActorsCollision->SetCapsuleHalfHeight(300.f);
-	CheckOverlapActorsCollision->SetCapsuleRadius(300.f);
-	CheckOverlapActorsCollision->SetVisibility(true);
-	CheckOverlapActorsCollision->OnComponentBeginOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapBegin);
-	CheckOverlapActorsCollision->OnComponentEndOverlap.AddDynamic(this, &ANPlayer::OnActorOverlapEnd);
 
 	/* Set Condition */
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
@@ -105,6 +97,9 @@ void ANPlayer::Tick(float DeltaTime) {
 			PController->ClientSetRotation(NRot);
 		}
 	}
+
+	/** Get Another Player */
+	SetAnotherPlayer();
 }
 void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -121,6 +116,24 @@ void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) 
 
 	// Chacra
 	PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::Chacra);
+}
+void ANPlayer::SetAnotherPlayer() {
+	if (!AnotherPlayer) {
+		for (auto x : GetWorld()->GetGameState()->PlayerArray) {
+			if (this != x->GetPawn()) {
+				AnotherPlayer = Cast<ANPlayer>(x->GetPawn());
+				break;
+			}
+		}
+	}
+	else {
+		/** Set IsInRange & DirectionVector (this to AnotherActor)*/
+		double val = (GetActorLocation() - AnotherPlayer->GetActorLocation()).Size();
+		IsInRange = (val < AutoRotDistance) ? true : false;
+
+		DirectionVec = (GetAnotherLocation() - GetActorLocation()).GetSafeNormal();
+		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
+	}
 }
 void ANPlayer::MoveForward(float Value) {
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
@@ -141,25 +154,19 @@ void ANPlayer::MoveRight(float Value) {
 void ANPlayer::Jump() {
 	if (CurChacraComp->GetChacraCnt() > 0) {
 		// @TODO : 로컬은 성공했으나 서버 실패 && 점프후 대쉬 또한 가능하니 상대를 바라보고 대쉬..
+		if (AnotherPlayer) {
+			UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
 
-		/*for (auto x : GetWorld()->GetGameState()->PlayerArray) {
-			if (this != x->GetPawn()) {
-				UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *x->GetPawn()->GetName());
+			FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), GetAnotherLocation());
+			RotateVal.Roll = GetActorRotation().Roll;
+			RotateVal.Pitch = GetActorRotation().Pitch;
+			SetActorRotation(RotateVal);
 
-				FVector vec = x->GetPawn()->GetActorLocation();
-				vec.X -= 100.f;
-				SetActorLocation(vec);
+			// @TODO : 수정 필요 다른 로직으로
+			LaunchCharacter(DirectionVec * 5000.f, false, false);
 
-				FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), x->GetPawn()->GetActorLocation());
-				RotateVal.Roll = GetActorRotation().Roll;
-				RotateVal.Pitch = GetActorRotation().Pitch;
-				SetActorRotation(RotateVal);
-
-				CurChacraComp->ResetChacraCnt();
-
-				break;
-			}
-		}*/
+			CurChacraComp->ResetChacraCnt();
+		}
 	}
 	else {
 		if (!HasAuthority()) {
@@ -211,33 +218,20 @@ void ANPlayer::Attack() {
 void ANPlayer::Chacra() {
 	CurChacraComp->UseChacra();
 }
-void ANPlayer::OnActorOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
-	if (OtherActor != this) {
-		CurAttackComp->SetInRangeActor(OtherActor);
-		UE_LOG(LogTemp, Warning, TEXT("%s is overlap"), *OtherActor->GetName());
-	}
-}
-void ANPlayer::OnActorOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex) {
-	if (OtherActor != this) {
-		CurAttackComp->SetInRangeActor(nullptr);
-		UE_LOG(LogTemp, Warning, TEXT("%s is overlap END"), *OtherActor->GetName());
-	}
-}
 void ANPlayer::SideStep() {
 	if(!HasAuthority()){
 		ServerSideStep();
 	}
 	else{	
-		AActor* Other = CurAttackComp->GetInRangeActor();
 		/* TODO: 맞고 있을때만 사용 가능하도록 조정
-		*if(!IsPlayerCondition(EPlayerCondition::EPC_Hited) || OtherA->GetInRangeActor() == nullptr || SideStepCnt < 0) return;
+		*if(!IsPlayerCondition(EPlayerCondition::EPC_Hited) || !AnotherPlayer || SideStepCnt < 0) return;
 		*/
-		if (Other == nullptr || SideStepCnt <= 0) return;
+		if (!AnotherPlayer || SideStepCnt <= 0) return;
 
-		FVector VecVal = Other->GetActorLocation() - (Other->GetActorForwardVector() * 100.f);
+		FVector VecVal = GetAnotherLocation() - (AnotherPlayer->GetActorForwardVector() * 100.f);
 		SetActorLocation(VecVal);
 
-		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), Other->GetActorLocation());
+		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), GetAnotherLocation());
 		RotateVal.Roll = GetActorRotation().Roll;
 		RotateVal.Pitch = GetActorRotation().Pitch;
 		SetActorRotation(RotateVal);
@@ -271,4 +265,5 @@ void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifeti
 	DOREPLIFETIME(ANPlayer, bIsDoubleJump);
 	DOREPLIFETIME(ANPlayer, PlayerCondition);
 	DOREPLIFETIME(ANPlayer, SideStepCnt);
+	DOREPLIFETIME(ANPlayer, AnotherPlayer);
 }

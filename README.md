@@ -1525,3 +1525,109 @@
 > **<h3>Realization</h3>**
   - 각 행동을 취할때 상태를 추가적으로 설정해주어야한다.
   - 바꿔치기를 피격중에만 가능하도록 추후 수정이 필요하다.
+
+## **Day_16**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">상대 캐릭터 정보 저장</span>
+  - 진행하다보니 상대방의 위치/상태와 같은 정보를 자주 호출하게 되는 것을 느껴, 각 플레이어는 상대 플레이어의 정보를 항시 가지고 있도록 한다.
+    - 상태 매니저를 만들려고 했으나, 어차피 상대 플레이어 객체만 알고 있으면 되기 때문에 만들지 않았다.
+  - 기존 공격 시 상대방이 플레이어 구체 이내에 있다면(Overlap시), 자동으로 회전하도록 처리하였는데 수정하여, 액터와 일정 범위내에 있다면 회전하도록 하였다.
+    - CheckOverlapActorsCollision 삭제....!!!
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //NPlayer.cpp
+    void ANPlayer::Tick(float DeltaTime) {
+      ...
+
+      /** Get Another Player */
+      if (!AnotherPlayer) {
+        for (auto x : GetWorld()->GetGameState()->PlayerArray) {
+          if (this != x->GetPawn()) AnotherPlayer = Cast<ANPlayer>(x->GetPawn());
+        }
+      }
+      else {
+        double val = (GetActorLocation() - AnotherPlayer->GetActorLocation()).Size();
+
+        // If it is within a certain range, it rotates automatically on attack.
+        if(val < AutoRotDistance) CurAttackComp->SetInRangeActor(AnotherPlayer);
+        else CurAttackComp->SetInRangeActor(nullptr);
+      }
+    }
+    ```
+    ```cpp
+    //AttackActorComponent.cpp
+    void UAttackActorComponent::RotateToActor() {
+      // 주인으로부터 허락을 받고, 좌표값만 넘겨받음....
+      if (CurOwner && CurOwner->GetIsInRange()) {
+        FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetOwner()->GetActorLocation(), CurOwner->GetAnotherLocation());   
+        ...
+      }
+      else {
+        UE_LOG(LogTemp, Warning, TEXT("ERROR : Roate Attack is Not Working"));
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayer.h
+    public:
+      UPROPERTY(Replicated, VisibleAnywhere)
+      ANPlayer* AnotherPlayer;
+
+      double AutoRotDistance = 450.f;			// Can Attack Min Distance
+      bool IsInRange = false;
+    public:
+      FORCEINLINE bool GetIsInRange() {return IsInRange; }
+      FORCEINLINE FVector GetAnotherLocation() { return AnotherPlayer->GetActorLocation(); }
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">상대 캐릭터으로의 방향벡터 LOG & 돌진</span>
+  - <img src="Image/AnotherDirction_Vec.gif" height="300" title="AnotherDirction_Vec">
+  - 각 플레이어로부터 상대 플레이어로의 방향 벡터를 계산하여, 화면상 로그로 띄우고, 일정 크기 돌진한다.
+  - 돌진의 로직은 현재 LaunchCharacter()메서드를 사용하였지만 추후 수정할 예정이다.
+    - 일정속도로 지속적으로 이동하며, 다른 플레이어와 닿거나 일정 시간으로 초과하면 종료하도록 수정
+    - 방향키의 입력에 따라 뒤로 이동하도록 수정
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::SetAnotherPlayer() {
+      ...
+      else {
+		    /** Set IsInRange & DirectionVector (this to AnotherActor)*/
+        double val = (GetActorLocation() - AnotherPlayer->GetActorLocation()).Size();
+        IsInRange = (val < AutoRotDistance) ? true : false;
+
+        DirectionVec = (GetAnotherLocation() - GetActorLocation()).GetSafeNormal();
+        DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
+      }
+    }
+    void ANPlayer::Jump() {
+      if (CurChacraComp->GetChacraCnt() > 0) {
+        if (AnotherPlayer) {
+          ...
+          // @TODO : 수정 필요 다른 로직으로
+          LaunchCharacter(DirectionVec * 5000.f, false, false);
+        }
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //ANPlayer.h
+    protected:
+	    FVector DirectionVec;
+    ```
+    </details>
+
+
+> **<h3>Realization</h3>**
+  - 

@@ -156,15 +156,17 @@ public:
 
 #pragma region CHECK_ANOTHER_ACTOR
 protected:
-	UPROPERTY(EditAnywhere, Category = "CheckOverlap", Meta = (AllowPrivateAccess = true))
-	class UCapsuleComponent* CheckOverlapActorsCollision;
+	UPROPERTY(Replicated, VisibleAnywhere)
+	ANPlayer* AnotherPlayer;
 
+	double AutoRotDistance = 450.f;			// Can Attack Min Distance
+	bool IsInRange = false;
+	FVector DirectionVec;
+
+	void SetAnotherPlayer();				// Get Another Playe
 public:
-	UFUNCTION()
-	void OnActorOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UFUNCTION()
-	void OnActorOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+	FORCEINLINE bool GetIsInRange() {return IsInRange; }
+	FORCEINLINE FVector GetAnotherLocation() { return AnotherPlayer->GetActorLocation(); }
 #pragma endregion
 
 };

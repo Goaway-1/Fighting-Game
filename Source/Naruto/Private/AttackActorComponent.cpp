@@ -138,17 +138,17 @@ bool UAttackActorComponent::ServerPlayMontage_Validate(UAnimMontage* Mongtage, f
 	return true;
 }
 void UAttackActorComponent::RotateToActor() {
-	//if (Cast<ACharacter>(GetOwner())->IsLocallyControlled() && InRangeActor != nullptr) {
-	if (InRangeActor != nullptr) {
-		UE_LOG(LogTemp, Warning, TEXT("%s is Exist so Attack Roate"), *InRangeActor->GetName());
+	/** Rotate (Fixed Roll & Pitch) */
 
-		/** Rotate (Fixed Roll & Pitch) */
-		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetOwner()->GetActorLocation(), InRangeActor->GetActorLocation());
+	//if (Cast<ACharacter>(GetOwner())->IsLocallyControlled() && InRangeActor != nullptr) {
+	if (CurOwner && CurOwner->GetIsInRange()) {
+		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetOwner()->GetActorLocation(), CurOwner->GetAnotherLocation());
 		RotateVal.Roll = GetOwner()->GetActorRotation().Roll;
 		RotateVal.Pitch = GetOwner()->GetActorRotation().Pitch;
 		GetOwner()->SetActorRotation(RotateVal);
 		ServerRotateToActor(RotateVal);
 	}
+	else UE_LOG(LogTemp, Warning, TEXT("[AttackActorCopoment_ERROR] : Roate Attack is Not Working"));
 }
 void UAttackActorComponent::MultiRotateToActor_Implementation(FRotator Rot){
 	//if (!Cast<ACharacter>(GetOwner())->IsLocallyControlled()) {
