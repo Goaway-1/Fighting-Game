@@ -2,6 +2,7 @@
 #include "ChacraActorComponent.h"
 #include "NPlayerState.h"
 #include "NPlayer.h"
+#include "MontageManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
@@ -54,7 +55,7 @@ void UAttackActorComponent::Attack() {
 	RotateToActor();
 
 	/** Play Animation Montage */
-	if (MainAnimInstance) {
+	if(CurOwner->GetMontageManager()){
 		UChacraActorComponent* ChacraCom = CurOwner->GetCurChacraComp();
 		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 
@@ -64,13 +65,14 @@ void UAttackActorComponent::Attack() {
 			EndAttack(); // 임시 (삭제)
 		}
 		else if (ChacraCom->GetChacraCnt() > 0) {
-			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill);
 			if(ChacraCom->GetChacraCnt() == 1) {
+				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill1);
 				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
-				PlayNetworkMontage(ActionMontage.ChacraAttack.MTChacra_Attacker[0], 1.f, true);
+				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, true);
 				ChacraCom->ResetChacraCnt();
 			}
 			else {
+				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill2);
 				UE_LOG(LogTemp, Warning, TEXT("Chacra2 Attack"));
 				ChacraCom->ResetChacraCnt();
 			}
@@ -79,14 +81,14 @@ void UAttackActorComponent::Attack() {
 		}
 		else {
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
-			if (!MainAnimInstance->Montage_IsPlaying(ActionMontage.MT_Attacker) && !MainAnimInstance->Montage_IsPlaying(ActionMontage.AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
+			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker) && !CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
 				ComboCnt = 1;
-				PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, false, 1);
+				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, false, 1);
 			}
 			else {
-				if (CurKeyUD == EKeyUpDown::EKUD_Up) PlayNetworkMontage(ActionMontage.AttackSplit.MTUP_Attacker, 1.f, false, ComboCnt);
-				else if (CurKeyUD == EKeyUpDown::EKUD_Down) PlayNetworkMontage(ActionMontage.AttackSplit.MTDOWN_Attacker, 1.f, false, ComboCnt);
-				else PlayNetworkMontage(ActionMontage.MT_Attacker, 1.f, false, ComboCnt);
+				if (CurKeyUD == EKeyUpDown::EKUD_Up) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker, 1.f, false, ComboCnt);
+				else if (CurKeyUD == EKeyUpDown::EKUD_Down) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker, 1.f, false, ComboCnt);
+				else CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, false, ComboCnt);
 			}
 		}
 	}
@@ -100,47 +102,25 @@ void UAttackActorComponent::EndAttack() {
 void UAttackActorComponent::AttackInputCheck() {
 	if (bIsAttackCheck) {
 		ComboCnt++;
-		if (ActionMontage.splitIdx == ComboCnt) CurKeyUD = TmpKeyUD;
+		if (CurOwner->GetMontageManager()->GetActionMontage().splitIdx == ComboCnt) CurKeyUD = TmpKeyUD;
 		bIsAttackCheck = false;
 		Attack();
 	}
 }
-FName UAttackActorComponent::GetAttackMontageSection(int32 Section) {
-	return FName(*FString::Printf(TEXT("Attack%d"), Section));
-}
-void UAttackActorComponent::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
-	//if (Cast<ACharacter>(GetOwner())->IsLocallyControlled()) {
-	if (MainAnimInstance) {
-		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
-		if(!isSkill){
-			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
-		}
+void UAttackActorComponent::SkillHitedCheck() {
+	if (bSkillHited) {
+		UE_LOG(LogTemp, Warning, TEXT("Skill Hited!"));
+		CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Idle);
+		CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, true, 1);
+		bSkillHited = false;
 	}
-
-	ServerPlayMontage(Mongtage, PlayRate, isSkill,idx);
-}
-void UAttackActorComponent::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
-	//if (!Cast<ACharacter>(GetOwner())->IsLocallyControlled()) 
-	if (MainAnimInstance) {
-		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
-		if (!isSkill) {
-			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
-		}
+	else {
+		UE_LOG(LogTemp, Warning, TEXT("Skill Not Hited!"));
 	}
-}
-bool UAttackActorComponent::MultiPlayNetworkMontage_Validate(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
-	return true;
-}
-void UAttackActorComponent::ServerPlayMontage_Implementation(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
-	MultiPlayNetworkMontage(Mongtage, PlayRate, isSkill,idx);
-}
-bool UAttackActorComponent::ServerPlayMontage_Validate(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
-	return true;
 }
 void UAttackActorComponent::RotateToActor() {
 	/** Rotate (Fixed Roll & Pitch) */
 
-	//if (Cast<ACharacter>(GetOwner())->IsLocallyControlled() && InRangeActor != nullptr) {
 	if (CurOwner && CurOwner->GetIsInRange()) {
 		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetOwner()->GetActorLocation(), CurOwner->GetAnotherLocation());
 		RotateVal.Roll = GetOwner()->GetActorRotation().Roll;

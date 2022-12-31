@@ -15,8 +15,9 @@ enum class EPlayerCondition : uint8 {
 	EPC_Dash			UMETA(DisplayName = "Dash"),
 	EPC_Jump			UMETA(DisplayName = "Jump"),
 	EPC_Attack			UMETA(DisplayName = "Attack"),
-	EPC_JAttack			UMETA(DisplayName = "JAttack"),
-	EPC_Skill			UMETA(DisplayName = "Skill")
+	EPC_JAttack			UMETA(DisplayName = "JAttack"),	//Àâ±â
+	EPC_Skill1			UMETA(DisplayName = "Skill1"),
+	EPC_Skill2			UMETA(DisplayName = "Skill2")
 };
 
 UCLASS()
@@ -52,6 +53,9 @@ public:
 	UFUNCTION()
 	FORCEINLINE bool IsPlayerCondition(EPlayerCondition Condition) { return (PlayerCondition == Condition); }
 
+	/* Check Player Can Input..? */
+	bool IsCanMove();
+
 protected:
 	UPROPERTY(Replicated,VisibleAnywhere, Category = "Condition")
 	EPlayerCondition PlayerCondition;
@@ -69,6 +73,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, Category = "Movement")
 	EKeyLeftRight Key_LR;
+
+	/* Another Player's Distance */
+	double AP_Distance;
 
 	/* Jump */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Movement|Jump")
@@ -90,6 +97,28 @@ public:
 	virtual void Jump() override;
 	virtual void ResetJumpState() override;
 
+#pragma endregion
+
+#pragma region CHACRADASH
+protected:
+	double ChacraDashForce = 5000.f;
+	double ChacraDashStopDis = 100.f;
+
+	UPROPERTY()
+	FTimerHandle StopChacraDashHandle;
+
+protected:
+	UFUNCTION()
+	void AutoChacraDash(float DeltaTime);
+
+	UFUNCTION()
+	void StopChacraDash();
+
+	UFUNCTION()
+	void ChacraDash();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerChacraDash();
 #pragma endregion
 
 #pragma region SIDESTEP
@@ -168,5 +197,16 @@ public:
 	FORCEINLINE bool GetIsInRange() {return IsInRange; }
 	FORCEINLINE FVector GetAnotherLocation() { return AnotherPlayer->GetActorLocation(); }
 #pragma endregion
+
+#pragma region MONTAGE
+protected:
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
+	class UMontageManager* MontageManager;
+
+public:
+	UFUNCTION()
+	FORCEINLINE UMontageManager* GetMontageManager() {return MontageManager;}
+#pragma endregion
+
 
 };

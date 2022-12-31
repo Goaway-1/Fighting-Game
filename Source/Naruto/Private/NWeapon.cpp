@@ -1,6 +1,7 @@
 #include "NWeapon.h"
 #include "Components/StaticMeshComponent.h"
 #include "NPlayer.h"
+#include "MontageManager.h"
 #include "AttackActorComponent.h"
 #include "Net/UnrealNetwork.h"
 
@@ -44,18 +45,29 @@ void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
 		AttackController->SetOverlapActors(OtherActor);
 
-		// 피격 몽타주 실행 :  AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
-		// 스킬 여부 판단
+		// 피격 몽타주 실행 : AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
 		ANPlayer* vitcim = Cast<ANPlayer>(OtherActor);
-		// if(스킬) = 스킬,,,
-		UAnimMontage* mon = OwnPlayer->GetCurAttackComp()->GetActionMontage().MT_Victim;
-		vitcim->GetCurAttackComp()->PlayNetworkMontage(mon,1.f, false,OwnPlayer->GetCurAttackComp()->GetComboCnt());
-		vitcim->GetCurAttackComp()->RotateToActor();
 
-		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *this->GetOwner()->GetName(), *OtherActor->GetName());
+		/** Check Attack Information... (Normal or Skill) */
+		if (OwnPlayer->IsPlayerCondition(EPlayerCondition::EPC_Attack)) {
+			UAnimMontage* mon = OwnPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+			vitcim->GetMontageManager()->PlayNetworkMontage(mon, 1.f, false, OwnPlayer->GetCurAttackComp()->GetComboCnt());
+			vitcim->GetCurAttackComp()->RotateToActor();
+
+			UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *this->GetOwner()->GetName(), *OtherActor->GetName());
+		}
+		else  {
+			UAnimMontage* mon = (OwnPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1)) ? OwnPlayer->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Victim[0] : OwnPlayer->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Victim[1];
+			vitcim->GetMontageManager()->PlayNetworkMontage(mon, 1.f, true);
+			vitcim->GetCurAttackComp()->RotateToActor();
+
+			//맞았어요!
+			OwnPlayer->GetCurAttackComp()->bSkillHited = true;
+
+			UE_LOG(LogTemp, Warning, TEXT("%s Skill %s"), *this->GetOwner()->GetName(), *OtherActor->GetName());
+		}
 	}
 }
-
 void ANWeapon::SetCollisionONOFF(bool isSet) {
 	if (HasAuthority()) {
 		if (!isSet) {

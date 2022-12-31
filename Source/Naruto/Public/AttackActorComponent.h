@@ -59,7 +59,7 @@ public:
 	UFUNCTION()
 	FORCEINLINE int16 GetComboCnt() { return ComboCnt; }
 private:
-	FName GetAttackMontageSection(int32 Section);	// Retrun MontageNumber
+	//FName GetAttackMontageSection(int32 Section);	// Retrun MontageNumber
 
 	UPROPERTY(VisibleAnyWhere)
 	int16 ComboCnt = 1;			
@@ -79,6 +79,15 @@ private:
 	UPROPERTY(Replicated, VisibleAnyWhere)
 	TArray<AActor*> OverlapActors;	// OverlapActor's Array
 #pragma endregion
+
+#pragma region SKILL
+public:
+	UFUNCTION(BlueprintCallable)
+	void SkillHitedCheck();				// ??
+
+	bool bSkillHited = false;
+#pragma endregion
+
 
 #pragma region ROTATE
 protected:
@@ -102,23 +111,5 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerRotateToActor(FRotator Rot);
 
-#pragma endregion
-#pragma region MONTAGE
-public:
-	void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
-
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
-
-	/** For Access from NWeapon */
-	UFUNCTION()
-	FORCEINLINE FAttackMontageStruct GetActionMontage() { return ActionMontage; }
-protected:
-	/** Montage List */
-	UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
-	FAttackMontageStruct ActionMontage;
 #pragma endregion
 };

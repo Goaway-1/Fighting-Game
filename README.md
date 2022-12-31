@@ -1630,4 +1630,202 @@
 
 
 > **<h3>Realization</h3>**
-  - 
+  - 돌진 로직 수정
+
+## **Day_17**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">돌진의 로직 수정</span>
+  - <img src="Image/ChacraDash_Edit.gif" height="300" title="ChacraDash_Edit">
+  - 기존 돌진하고 끝냈던 로직을 아래와 같이 수정한다.
+    - 돌진을 지속적으로 사용하며, 다른 플레이어와의 거리가 일정이내라면 종료하도록 수정
+    - 최대 5번 진행하며, 다른 플레이어와 150거리만큼 좁혀진다면 사용하지 않는다.
+  - IsCanMove() : 돌진 중일때는 플레이어의 상태를 전환하고, 다른키의 입력이 불가능하도록 수정..
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //NPlayer.cpp
+    bool ANPlayer::IsCanMove() {
+      if(GetPlayerCondition() == EPlayerCondition::EPC_Dash) return false;
+      else return true;
+    }
+    void ANPlayer::Jump() {
+      if (!IsCanMove()) return;
+
+      if (CurChacraComp->GetChacraCnt() > 0) {
+        ChacraDash();
+      }
+    }
+    void ANPlayer::ChacraDash() {
+      if (AnotherPlayer) {
+        UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
+
+        if (!HasAuthority()) ServerChacraDash();
+        AutoChacraDash();
+        SetPlayerCondition(EPlayerCondition::EPC_Dash);
+        CurChacraComp->ResetChacraCnt();
+      }
+    }
+    void ANPlayer::AutoChacraDash() {
+      /** Check Condition And Dash.! */
+      if (--ChacraDashCnt < 0 || AP_Distance < ChacraDashStopDis) {
+        UE_LOG(LogTemp, Warning, TEXT("AutoDash is Stop || Cnt : %d, Dis :%f"), ChacraDashCnt, AP_Distance);
+        ChacraDashCnt = ChacraDashMaxCnt;
+        SetPlayerCondition(EPlayerCondition::EPC_Idle);
+      }
+      else {
+        FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), GetAnotherLocation());
+        RotateVal.Roll = GetActorRotation().Roll;
+        RotateVal.Pitch = GetActorRotation().Pitch;
+        SetActorRotation(RotateVal);
+
+        LaunchCharacter(DirectionVec * ChacraDashForce, false, false);
+        GetWorld()->GetTimerManager().ClearTimer(AutoChacraDashHandle);
+        GetWorld()->GetTimerManager().SetTimer(AutoChacraDashHandle, this, &ANPlayer::AutoChacraDash, 0.3f, false);
+      }
+    }
+    void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+      ...
+      DOREPLIFETIME(ANPlayer, ChacraDashCnt);
+    }
+    ```
+    </details>    
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayer.h
+    public:
+    	/* Check Player Can Input..? */
+	    bool IsCanMove();
+
+    protected:
+      UPROPERTY(Replicated, VisibleAnywhere)
+      int8 ChacraDashCnt = 5;
+
+      int8 ChacraDashMaxCnt = 5;
+      double ChacraDashForce = 5000.f;
+      double ChacraDashStopDis = 150.f;
+
+      UPROPERTY()
+      FTimerHandle AutoChacraDashHandle;
+
+      UFUNCTION()
+      void ChacraDash();
+
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerChacraDash();
+
+      /** Auto Dash but Can not Move.. */
+      UFUNCTION()
+      void AutoChacraDash();      
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">돌진의 로직 수정_2</span>
+  - <img src="Image/ChacraDash_Edit2.gif" height="300" title="ChacraDash_Edit2">
+  - 위에서의 로직이 부자연스럽다고 생각. 어차피 움직임은 봉쇄되니 액터의 좌표를 직접 Tick 마다 움직이는 방식으로 로직을 교체
+    - 대신 Tick에서 작동하기 때문에 사용자의 PC에 따른 문제가 발생할 수 있음. Tick을 고정하면 해결완료.
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::Tick(float DeltaTime) {
+      ...
+      /** Active Chacra Dash */
+      AutoChacraDash(DeltaTime);
+    }
+    void ANPlayer::ChacraDash() {
+      if (AnotherPlayer) {
+        UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
+
+        if (!HasAuthority()) ServerChacraDash();
+
+        SetPlayerCondition(EPlayerCondition::EPC_Dash);
+        CurChacraComp->ResetChacraCnt();
+
+        // Reset Timer
+        GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
+        GetWorld()->GetTimerManager().SetTimer(StopChacraDashHandle, this, &ANPlayer::StopChacraDash, 1.5f, false);
+      }
+    }
+    void ANPlayer::AutoChacraDash(float DeltaTime) {
+      if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+        if (AP_Distance < ChacraDashStopDis) {
+          StopChacraDash();
+          return;
+        }
+
+        // Set Rotation
+        FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), GetAnotherLocation());
+        RotateVal.Roll = GetActorRotation().Roll;
+        RotateVal.Pitch = GetActorRotation().Pitch;
+        SetActorRotation(RotateVal);
+
+        // Set Location
+        FVector Loc = GetActorLocation();
+        Loc += (AnotherPlayer->GetActorLocation() - Loc).GetSafeNormal() * ChacraDashForce * DeltaTime;
+        SetActorLocation(Loc);
+      }
+    }
+    void ANPlayer::StopChacraDash() {
+      if (AP_Distance < ChacraDashStopDis || IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+        SetPlayerCondition(EPlayerCondition::EPC_Idle);
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //ANPlayer.h
+    protected:
+      UFUNCTION()
+      void StopChacraDash();
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">잡다한 것들</span>
+  1. 클라이언트에서도 LaunchCharacter()메서드가 호출되도록 서버를 통해 호출.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::ServerChacraDash_Implementation() {
+        ChacraDash();
+      }
+      bool ANPlayer::ServerChacraDash_Validate() {
+        return true;
+      }
+      ```
+      </details>    
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.h
+      protected:
+        UFUNCTION()
+        void ChacraDash();
+
+        UFUNCTION(Server, Reliable, WithValidation)
+        void ServerChacraDash();
+      ```
+      </details>
+
+  2. 애니메이션 몽타주 관리자 생성
+    - 기존 몽타주의 실행은 어느곳에서든 진행되었는데, 이를 ActorComponent로 생성하여 관리..
+    - 기존 AttackActorComponet에 존재하던 메서드를 모두 이동...
+
+> **<h3>Realization</h3>**
+  - 돌진로직에서 방향키의 입력에 따른 이동은 제거..
+  - 돌진을 조금 더 디테일하게 수정하려면, 거리에 따른 Force를 지정해주어야한다.
+
+## **Day_18**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">잡기...</span>
+
+- ## <span style = "color:yellow;">대쉬 애니메이션...</span>
+
+
+> **<h3>Realization</h3>**

@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "AttackActorComponent.h"
 #include "ChacraActorComponent.h"
+#include "MontageManager.h"
 #include "NPlayerState.h"
 #include "DrawDebugHelpers.h"
 
@@ -52,6 +53,7 @@ ANPlayer::ANPlayer() {
 	/* Attack & Chacra Component */ 
 	CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
 	CurChacraComp = CreateDefaultSubobject<UChacraActorComponent>(TEXT("ChacraComponent"));
+	MontageManager = CreateDefaultSubobject<UMontageManager>(TEXT("MontageManager"));
 
 	/* Set Condition */
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
@@ -82,6 +84,7 @@ void ANPlayer::BeginPlay() {
 
 	/* Attack */
 	CurAttackComp->SetInit(this,GetMesh()->GetAnimInstance());
+	MontageManager->SetInit(this, GetMesh()->GetAnimInstance());
 }
 void ANPlayer::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
@@ -100,6 +103,9 @@ void ANPlayer::Tick(float DeltaTime) {
 
 	/** Get Another Player */
 	SetAnotherPlayer();
+
+	/** Active Chacra Dash */
+	AutoChacraDash(DeltaTime);
 }
 void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -128,14 +134,16 @@ void ANPlayer::SetAnotherPlayer() {
 	}
 	else {
 		/** Set IsInRange & DirectionVector (this to AnotherActor)*/
-		double val = (GetActorLocation() - AnotherPlayer->GetActorLocation()).Size();
-		IsInRange = (val < AutoRotDistance) ? true : false;
+		AP_Distance = (GetActorLocation() - AnotherPlayer->GetActorLocation()).Size();
+		IsInRange = (AP_Distance < AutoRotDistance) ? true : false;
 
 		DirectionVec = (GetAnotherLocation() - GetActorLocation()).GetSafeNormal();
 		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
 	}
 }
 void ANPlayer::MoveForward(float Value) {
+	if(!IsCanMove()) return;
+
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
 	AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), Value);
 
@@ -144,6 +152,8 @@ void ANPlayer::MoveForward(float Value) {
 	else SetKeyUpDown(EKeyUpDown::EKUD_Default);
 }
 void ANPlayer::MoveRight(float Value) {
+	if (!IsCanMove()) return;
+
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
 	AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value);
 
@@ -151,22 +161,15 @@ void ANPlayer::MoveRight(float Value) {
 	else if (Value < 0) SetKeyLeftRight(EKeyLeftRight::EKLR_Left);
 	else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
 }
+bool ANPlayer::IsCanMove() {
+	if(GetPlayerCondition() == EPlayerCondition::EPC_Dash) return false;
+	else return true;
+}
 void ANPlayer::Jump() {
+	if (!IsCanMove()) return;
+
 	if (CurChacraComp->GetChacraCnt() > 0) {
-		// @TODO : 로컬은 성공했으나 서버 실패 && 점프후 대쉬 또한 가능하니 상대를 바라보고 대쉬..
-		if (AnotherPlayer) {
-			UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
-
-			FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), GetAnotherLocation());
-			RotateVal.Roll = GetActorRotation().Roll;
-			RotateVal.Pitch = GetActorRotation().Pitch;
-			SetActorRotation(RotateVal);
-
-			// @TODO : 수정 필요 다른 로직으로
-			LaunchCharacter(DirectionVec * 5000.f, false, false);
-
-			CurChacraComp->ResetChacraCnt();
-		}
+		ChacraDash();
 	}
 	else {
 		if (!HasAuthority()) {
@@ -213,12 +216,62 @@ void ANPlayer::SetWeapon() {
 	}
 }
 void ANPlayer::Attack() {
+	if (!IsCanMove()) return;
+
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
 void ANPlayer::Chacra() {
+	if (!IsCanMove()) return;
+
 	CurChacraComp->UseChacra();
 }
+void ANPlayer::ChacraDash() {
+	if (AnotherPlayer) {
+		UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
+
+		if (!HasAuthority()) ServerChacraDash();
+
+		SetPlayerCondition(EPlayerCondition::EPC_Dash);
+		CurChacraComp->ResetChacraCnt();
+
+		// Reset Timer
+		GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
+		GetWorld()->GetTimerManager().SetTimer(StopChacraDashHandle, this, &ANPlayer::StopChacraDash, 1.5f, false);
+	}
+}
+void ANPlayer::ServerChacraDash_Implementation() {
+	ChacraDash();
+}
+bool ANPlayer::ServerChacraDash_Validate() {
+	return true;
+}
+void ANPlayer::AutoChacraDash(float DeltaTime) {
+	if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+		if (AP_Distance < ChacraDashStopDis) {
+			StopChacraDash();
+			return;
+		}
+
+		// Set Rotation
+		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), GetAnotherLocation());
+		RotateVal.Roll = GetActorRotation().Roll;
+		RotateVal.Pitch = GetActorRotation().Pitch;
+		SetActorRotation(RotateVal);
+
+		// Set Location
+		FVector Loc = GetActorLocation();
+		Loc += (AnotherPlayer->GetActorLocation() - Loc).GetSafeNormal() * ChacraDashForce * DeltaTime;
+		SetActorLocation(Loc);
+	}
+}
+void ANPlayer::StopChacraDash() {
+	if (AP_Distance < ChacraDashStopDis || IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+		SetPlayerCondition(EPlayerCondition::EPC_Idle);
+	}
+}
 void ANPlayer::SideStep() {
+	if (!IsCanMove()) return;
+
 	if(!HasAuthority()){
 		ServerSideStep();
 	}
