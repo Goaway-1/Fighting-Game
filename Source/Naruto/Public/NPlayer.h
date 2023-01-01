@@ -12,10 +12,11 @@ enum class EPlayerCondition : uint8 {
 	EPC_Hited			UMETA(DisplayName = "Hited"),
 	EPC_Parry			UMETA(DisplayName = "Parry"),
 	EPC_Charge			UMETA(DisplayName = "Charge"),
+	EPC_Block			UMETA(DisplayName = "Block"),
 	EPC_Dash			UMETA(DisplayName = "Dash"),
 	EPC_Jump			UMETA(DisplayName = "Jump"),
 	EPC_Attack			UMETA(DisplayName = "Attack"),
-	EPC_JAttack			UMETA(DisplayName = "JAttack"),	//잡기
+	EPC_Grap			UMETA(DisplayName = "Grap"),	//잡기
 	EPC_Skill1			UMETA(DisplayName = "Skill1"),
 	EPC_Skill2			UMETA(DisplayName = "Skill2")
 };
@@ -47,7 +48,7 @@ public:
 	UFUNCTION()
 	FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	FORCEINLINE void SetPlayerCondition(EPlayerCondition NewCondition) { PlayerCondition = NewCondition; }
 
 	UFUNCTION()
@@ -206,6 +207,19 @@ protected:
 public:
 	UFUNCTION()
 	FORCEINLINE UMontageManager* GetMontageManager() {return MontageManager;}
+#pragma endregion
+
+#pragma region HITED
+public:
+	UFUNCTION()
+	void IsHited();
+#pragma endregion
+
+
+#pragma region BLOCK
+public:
+	FORCEINLINE void PressBlock() { PlayerCondition = EPlayerCondition::EPC_Block; }
+	FORCEINLINE void ReleaseBlock() { if(PlayerCondition == EPlayerCondition::EPC_Block) PlayerCondition = EPlayerCondition::EPC_Idle; }
 #pragma endregion
 
 

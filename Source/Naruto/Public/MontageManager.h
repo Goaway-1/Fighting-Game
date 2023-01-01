@@ -1,6 +1,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "AttackStruct.h"
+#include "NPlayer.h"
 #include "MontageManager.generated.h"
 
 
@@ -25,21 +26,23 @@ public:
 
 	FName GetAttackMontageSection(int32 Section);	// Retrun MontageNumber
 
-	void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
+	void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx = 0);
 
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
+	void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx = 0);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill = false, int idx = 0);
+	void ServerPlayMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx = 0);
 
 	/** For Access from NWeapon */
 	UFUNCTION()
 	FORCEINLINE FAttackMontageStruct GetActionMontage() { return ActionMontage; }
 
-	///Ne
 	UFUNCTION()
 	FORCEINLINE bool IsMontagePlaying(UAnimMontage* Montage) { return (MainAnimInstance->Montage_IsPlaying(Montage)) ? true:false ; }
+
+	UFUNCTION()
+	FORCEINLINE void StopMontage() { MainAnimInstance->StopAllMontages(0.f); }
 
 protected:
 	/** Montage List */

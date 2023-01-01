@@ -87,4 +87,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FChacraAttackMontageStruct ChacraAttack;
+
+	/** Hold Attack */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_GrapAttack;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_GrapVictim;
+
+	/** Dash */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_ChacraDash;
 };

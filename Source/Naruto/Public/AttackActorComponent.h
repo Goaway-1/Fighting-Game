@@ -22,13 +22,10 @@ public:
 
 protected:
 	UPROPERTY()
-	UAnimInstance* MainAnimInstance;
-
-	UPROPERTY()
 	class ANPlayer* CurOwner;
 
 public:
-	FORCEINLINE void SetInit(ANPlayer* player, UAnimInstance* AnimInst) { CurOwner = player; MainAnimInstance = AnimInst; }
+	FORCEINLINE void SetInit(ANPlayer* player) { CurOwner = player;  }
 	
 #pragma region ATTACK
 public:
@@ -80,14 +77,14 @@ private:
 	TArray<AActor*> OverlapActors;	// OverlapActor's Array
 #pragma endregion
 
+
 #pragma region SKILL
 public:
 	UFUNCTION(BlueprintCallable)
-	void SkillHitedCheck();				// ??
+	void GrapHitedCheck();				
 
-	bool bSkillHited = false;
+	bool bGrapHited = false;
 #pragma endregion
-
 
 #pragma region ROTATE
 protected:

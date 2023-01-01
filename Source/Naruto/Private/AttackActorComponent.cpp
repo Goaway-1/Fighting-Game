@@ -59,16 +59,21 @@ void UAttackActorComponent::Attack() {
 		UChacraActorComponent* ChacraCom = CurOwner->GetCurChacraComp();
 		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 
-		if (isFalling){
+		if (isFalling){	
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
 
 			EndAttack(); // 임시 (삭제)
+		}
+		else if (CurOwner->IsPlayerCondition(EPlayerCondition::EPC_Block)) {
+			UE_LOG(LogTemp, Warning, TEXT("Grap Attack"));
+			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Grap);
+			CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_GrapAttack, 1.f,CurOwner->GetPlayerCondition());
 		}
 		else if (ChacraCom->GetChacraCnt() > 0) {
 			if(ChacraCom->GetChacraCnt() == 1) {
 				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill1);
 				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
-				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, true);
+				//CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, true);
 				ChacraCom->ResetChacraCnt();
 			}
 			else {
@@ -79,16 +84,16 @@ void UAttackActorComponent::Attack() {
 
 			EndAttack(); // 임시 (삭제)
 		}
-		else {
+		else {	
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
 			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker) && !CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
 				ComboCnt = 1;
-				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, false, 1);
+				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, CurOwner->GetPlayerCondition(), 1);
 			}
 			else {
-				if (CurKeyUD == EKeyUpDown::EKUD_Up) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker, 1.f, false, ComboCnt);
-				else if (CurKeyUD == EKeyUpDown::EKUD_Down) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker, 1.f, false, ComboCnt);
-				else CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, false, ComboCnt);
+				if (CurKeyUD == EKeyUpDown::EKUD_Up) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+				else if (CurKeyUD == EKeyUpDown::EKUD_Down) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+				else CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 			}
 		}
 	}
@@ -107,15 +112,14 @@ void UAttackActorComponent::AttackInputCheck() {
 		Attack();
 	}
 }
-void UAttackActorComponent::SkillHitedCheck() {
-	if (bSkillHited) {
-		UE_LOG(LogTemp, Warning, TEXT("Skill Hited!"));
-		CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Idle);
-		CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, true, 1);
-		bSkillHited = false;
+void UAttackActorComponent::GrapHitedCheck() {
+	if (bGrapHited) {
+		UE_LOG(LogTemp, Warning, TEXT("Grap Attack Hited!"));
+		CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_GrapAttack, 1.f, CurOwner->GetPlayerCondition(), 1);
+		bGrapHited = false;
 	}
 	else {
-		UE_LOG(LogTemp, Warning, TEXT("Skill Not Hited!"));
+		UE_LOG(LogTemp, Warning, TEXT("Grap Attack Not Hited!"));
 	}
 }
 void UAttackActorComponent::RotateToActor() {

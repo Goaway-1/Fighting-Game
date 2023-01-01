@@ -1823,9 +1823,162 @@
 
 ## **Day_18**
 > **<h3>Today Dev Story</h3>**
-- ## <span style = "color:yellow;">잡기...</span>
+- ## <span style = "color:yellow;">잡기</span>
+  - <img src="Image/GrapAttack.gif" height="300" title="GrapAttack">
+  - <img src="Image/Grap_Hited_Check.png" height="300" title="Grap_Hited_Check">
+  - 막기를 누른 상태에서 공격키를 누르면 잡기를 시전한다. 이는 상대가 무슨 상태이던 상관없이 피격처리한다.
+  - 잡기가 성공했는지 여부를 애니메이션 노티파이를 사용하여 확인하고, 성공했다면 나머지 애니메이션도 실행한다.
+    - 문제점 : 애니메이션이 실행되나 위치가 동일하지 않다. 수정 필요..!
 
-- ## <span style = "color:yellow;">대쉬 애니메이션...</span>
+    <details><summary>Cpp File</summary>
 
+    ```cpp
+    //NWeapon.cpp
+    void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+      ...
+      else if (OwnPlayer->IsPlayerCondition(EPlayerCondition::EPC_Grap)) {
+        UE_LOG(LogTemp, Warning, TEXT("%s Grap %s"), *this->GetOwner()->GetName(), *OtherActor->GetName());
+        UAnimMontage* mon = OwnPlayer->GetMontageManager()->GetActionMontage().MT_GrapVictim;
+        vitcim->GetMontageManager()->PlayNetworkMontage(mon, 1.f, true);
+        vitcim->GetCurAttackComp()->RotateToActor();
+
+        OwnPlayer->GetCurAttackComp()->bGrapHited = true;
+      }
+    }
+    ```
+    ```cpp
+    //AttackActorComponent.cpp
+    void UAttackActorComponent::Attack() {
+      bAttacking = true;
+
+      /** Play Animation Montage */
+      if(CurOwner->GetMontageManager()){
+        ...
+        else if (CurOwner->IsPlayerCondition(EPlayerCondition::EPC_Block)) {
+          UE_LOG(LogTemp, Warning, TEXT("Grap Attack"));
+          CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Grap);
+          CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_GrapAttack, 1.f, true);
+        }
+      }
+    }
+    void UAttackActorComponent::GrapHitedCheck() {
+      if (bGrapHited) {
+        UE_LOG(LogTemp, Warning, TEXT("Grap Attack Hited!"));
+        CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_GrapAttack, 1.f, true, 1);
+        bGrapHited = false;
+      }
+      else {
+        UE_LOG(LogTemp, Warning, TEXT("Grap Attack Not Hited!"));
+      }
+    }
+    ```
+    ```cpp
+    //MontageManager.cpp
+    void UMontageManager::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, bool isSkill, int idx) {
+      if (MainAnimInstance) {
+        MainAnimInstance->Montage_Play(Mongtage, PlayRate);
+        if (!isSkill) {
+          MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
+        }
+        else if (idx == 1) {	//그랩 마무리
+          MainAnimInstance->Montage_JumpToSection("SuccessedAttack", Mongtage);
+        }
+      }
+
+      ServerPlayMontage(Mongtage, PlayRate, isSkill, idx);
+    }
+    ```
+    </details>    
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //AttackActorComponent.h
+    public:
+      UFUNCTION(BlueprintCallable)
+      void GrapHitedCheck();				  // Check Grap Hited!
+
+      bool bGrapHited = false;
+    ```
+    ```cpp
+    //NPlayer.h
+    public:
+      FORCEINLINE void PressBlock() { PlayerCondition = EPlayerCondition::EPC_Block; }
+      FORCEINLINE void ReleaseBlock() { PlayerCondition = EPlayerCondition::EPC_Idle; }
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">잡기 (수정)</span>
+  - <img src="Image/GrapAttack_Edit.gif" height="300" title="GrapAttack_Edit">
+  - 이전에서 말했듯이 애니메이션은 모두 잘 실행되나, 위치에 있어 동기화가 필요하다고 판단..
+  - 그래서 강제로 좌표이동하며, 기존 Weapon에 작성되었던 애니메이션의 실행과 로직은 Player의 메서드로 이동하고, 이를 Weapon에서 호출해서 사용..!
+  - 또한 상대 상태 변경하여 이동이 불가능하도록 수정하였다. 이때 바꿔치기만 가능하다.
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::IsHited() {
+      /** Check Attack Information... (Normal or Skill) */
+      if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Attack)) {
+        UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+        GetMontageManager()->PlayNetworkMontage(mon, 1.f, false, AnotherPlayer->GetCurAttackComp()->GetComboCnt());
+        GetCurAttackComp()->RotateToActor();
+
+        UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *AnotherPlayer->GetName(), *this->GetName());
+      }
+      else if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Grap)) {
+        UE_LOG(LogTemp, Warning, TEXT("%s Grap %s"), *AnotherPlayer->GetName(), *this->GetName());
+        UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_GrapVictim;
+        GetMontageManager()->PlayNetworkMontage(mon, 1.f, true);
+        GetCurAttackComp()->RotateToActor();
+
+        FVector forceVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100.f);
+        SetActorLocation(forceVec);
+
+        AnotherPlayer->GetCurAttackComp()->bGrapHited = true;
+      }
+    }
+    ```
+    ```cpp
+    //ANWeapon.cpp
+    void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+      if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
+        AttackController->SetOverlapActors(OtherActor);
+
+        // 피격 몽타주 실행 : AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
+        ANPlayer* victim = Cast<ANPlayer>(OtherActor);
+        victim->IsHited();
+      }
+    }
+    ```
+    </details>
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //ANPlayer.h
+    public:
+      UFUNCTION()
+      void IsHited();
+    ```
+    </details>
+
+- ## <span style = "color:yellow;">잡다한 것들</span>
+  1. 대쉬 애니메이션
+    - 해당 애니메이션은 1프레임짜리로 단순 반복되며, 대쉬가 종료된다면 몽타주를 종료..
+
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::StopChacraDash() {
+      if (AP_Distance < ChacraDashStopDis || IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+        SetPlayerCondition(EPlayerCondition::EPC_Idle);
+        GetMontageManager()->StopMontage();
+      }
+    }
+    ```
+    </details> 
 
 > **<h3>Realization</h3>**
+  - 개발이 그렇듯 그 상태변화에 따른 추후 공격 불가 경우 존재
+    - 수정 필요..

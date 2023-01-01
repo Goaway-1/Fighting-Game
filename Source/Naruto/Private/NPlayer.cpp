@@ -83,7 +83,7 @@ void ANPlayer::BeginPlay() {
 	SetWeapon();
 
 	/* Attack */
-	CurAttackComp->SetInit(this,GetMesh()->GetAnimInstance());
+	CurAttackComp->SetInit(this);
 	MontageManager->SetInit(this, GetMesh()->GetAnimInstance());
 }
 void ANPlayer::PossessedBy(AController* NewController) {
@@ -119,6 +119,8 @@ void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) 
 	// Attack
 	PlayerInputComponent->BindAction("Attack", IE_Pressed,this, &ANPlayer::Attack);
 	PlayerInputComponent->BindAction("SideStep", IE_Pressed,this, &ANPlayer::SideStep);
+	PlayerInputComponent->BindAction("Block", IE_Pressed,this, &ANPlayer::PressBlock);
+	PlayerInputComponent->BindAction("Block", IE_Released,this, &ANPlayer::ReleaseBlock);
 
 	// Chacra
 	PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::Chacra);
@@ -162,7 +164,7 @@ void ANPlayer::MoveRight(float Value) {
 	else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
 }
 bool ANPlayer::IsCanMove() {
-	if(GetPlayerCondition() == EPlayerCondition::EPC_Dash) return false;
+	if(IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
 	else return true;
 }
 void ANPlayer::Jump() {
@@ -216,9 +218,34 @@ void ANPlayer::SetWeapon() {
 	}
 }
 void ANPlayer::Attack() {
-	if (!IsCanMove()) return;
+	//if (!IsCanMove()) return;
 
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
+}
+void ANPlayer::IsHited() {
+	SetPlayerCondition(EPlayerCondition::EPC_Hited);
+
+	/** Check Attack Information... (Normal or Skill) */
+	if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Attack)) {
+		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *AnotherPlayer->GetName(), *this->GetName());
+
+		UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+		GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition(), AnotherPlayer->GetCurAttackComp()->GetComboCnt());
+		GetCurAttackComp()->RotateToActor();
+	}
+	else if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Grap)) {
+		UE_LOG(LogTemp, Warning, TEXT("%s Grap %s"), *AnotherPlayer->GetName(), *this->GetName());
+
+		/** Set Victim  Rotate & Location */
+		UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_GrapVictim;
+		GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
+		GetCurAttackComp()->RotateToActor();
+
+		FVector forceVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100.f);
+		SetActorLocation(forceVec);
+
+		AnotherPlayer->GetCurAttackComp()->bGrapHited = true;
+	}
 }
 void ANPlayer::Chacra() {
 	if (!IsCanMove()) return;
@@ -233,6 +260,9 @@ void ANPlayer::ChacraDash() {
 
 		SetPlayerCondition(EPlayerCondition::EPC_Dash);
 		CurChacraComp->ResetChacraCnt();
+
+		// Animation
+		GetMontageManager()->PlayNetworkMontage(GetMontageManager()->GetActionMontage().MT_ChacraDash, 0.f, GetPlayerCondition());
 
 		// Reset Timer
 		GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
@@ -267,20 +297,17 @@ void ANPlayer::AutoChacraDash(float DeltaTime) {
 void ANPlayer::StopChacraDash() {
 	if (AP_Distance < ChacraDashStopDis || IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
 		SetPlayerCondition(EPlayerCondition::EPC_Idle);
+		GetMontageManager()->StopMontage();
 	}
 }
 void ANPlayer::SideStep() {
-	if (!IsCanMove()) return;
+	//if (!IsPlayerCondition(EPlayerCondition::EPC_Hited) || !AnotherPlayer || SideStepCnt <= 0) return;
+	if (!AnotherPlayer || SideStepCnt <= 0) return;
 
 	if(!HasAuthority()){
 		ServerSideStep();
 	}
-	else{	
-		/* TODO: 맞고 있을때만 사용 가능하도록 조정
-		*if(!IsPlayerCondition(EPlayerCondition::EPC_Hited) || !AnotherPlayer || SideStepCnt < 0) return;
-		*/
-		if (!AnotherPlayer || SideStepCnt <= 0) return;
-
+	else{
 		FVector VecVal = GetAnotherLocation() - (AnotherPlayer->GetActorForwardVector() * 100.f);
 		SetActorLocation(VecVal);
 
