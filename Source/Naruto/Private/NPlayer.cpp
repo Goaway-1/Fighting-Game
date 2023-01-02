@@ -63,7 +63,7 @@ void ANPlayer::BeginPlay() {
 	
 	/** Find MainCameraManager & Set */
 	if (CameraManagerClass) {
-		ANCameraManager* TargetCamera = Cast<ANCameraManager>(UGameplayStatics::GetActorOfClass(this, ANCameraManager::StaticClass()));
+		TargetCamera = Cast<ANCameraManager>(UGameplayStatics::GetActorOfClass(this, ANCameraManager::StaticClass()));
 
 		if (TargetCamera) {
 			CameraManager = TargetCamera;
@@ -137,7 +137,6 @@ void ANPlayer::SetAnotherPlayer() {
 	else {
 		/** Set IsInRange & DirectionVector (this to AnotherActor)*/
 		AP_Distance = (GetActorLocation() - AnotherPlayer->GetActorLocation()).Size();
-		IsInRange = (AP_Distance < AutoRotDistance) ? true : false;
 
 		DirectionVec = (GetAnotherLocation() - GetActorLocation()).GetSafeNormal();
 		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
@@ -218,7 +217,7 @@ void ANPlayer::SetWeapon() {
 	}
 }
 void ANPlayer::Attack() {
-	//if (!IsCanMove()) return;
+	if (IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
 
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
@@ -226,14 +225,7 @@ void ANPlayer::IsHited() {
 	SetPlayerCondition(EPlayerCondition::EPC_Hited);
 
 	/** Check Attack Information... (Normal or Skill) */
-	if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Attack)) {
-		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *AnotherPlayer->GetName(), *this->GetName());
-
-		UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
-		GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition(), AnotherPlayer->GetCurAttackComp()->GetComboCnt());
-		GetCurAttackComp()->RotateToActor();
-	}
-	else if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Grap)) {
+	if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Grap)) {
 		UE_LOG(LogTemp, Warning, TEXT("%s Grap %s"), *AnotherPlayer->GetName(), *this->GetName());
 
 		/** Set Victim  Rotate & Location */
@@ -245,6 +237,16 @@ void ANPlayer::IsHited() {
 		SetActorLocation(forceVec);
 
 		AnotherPlayer->GetCurAttackComp()->bGrapHited = true;
+	}
+	else  {
+		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *AnotherPlayer->GetName(), *this->GetName());
+
+		UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+		GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition(), AnotherPlayer->GetCurAttackComp()->GetComboCnt());
+		GetCurAttackComp()->RotateToActor();
+
+		/** Set Attack View */
+		if (AnotherPlayer->GetCurAttackComp()->GetComboCnt() >= 2) TargetCamera->SetAttackView();
 	}
 }
 void ANPlayer::Chacra() {

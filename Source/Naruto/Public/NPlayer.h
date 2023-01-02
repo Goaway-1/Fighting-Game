@@ -43,6 +43,8 @@ protected:
 
 	APlayerController* PlayerControlComp;
 
+	ANCameraManager* TargetCamera;
+
 #pragma region PLAYERCONDITION
 public:
 	UFUNCTION()
@@ -190,12 +192,10 @@ protected:
 	ANPlayer* AnotherPlayer;
 
 	double AutoRotDistance = 450.f;			// Can Attack Min Distance
-	bool IsInRange = false;
 	FVector DirectionVec;
 
 	void SetAnotherPlayer();				// Get Another Playe
 public:
-	FORCEINLINE bool GetIsInRange() {return IsInRange; }
 	FORCEINLINE FVector GetAnotherLocation() { return AnotherPlayer->GetActorLocation(); }
 #pragma endregion
 

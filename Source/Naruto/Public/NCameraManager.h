@@ -101,4 +101,13 @@ private:
 	void SetP1RelativeVal();			// Determine where P1 is relative to P2 (front/back, left/right)
 
 	FORCEINLINE ECameraType GetCameraType() { return CameraType; }
+
+
+private:
+	bool bIsAttackView = false;
+
+public:
+	UFUNCTION()
+	void SetAttackView();				// Set Attack View : The two players look at all
+
 };

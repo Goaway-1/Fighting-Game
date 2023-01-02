@@ -34,7 +34,7 @@ TArray<AActor*> UAttackActorComponent::GetOverlapActors() {
 	return OverlapActors;
 }
 bool UAttackActorComponent::IsAlreadyOverlap(AActor* actor) { 
-	for (int i = 0; i< OverlapActors.Num();i++) { 
+	for (int i = 0; i < OverlapActors.Num();i++) { 
 		if (OverlapActors[i] == actor) return true;
 	} 
 	return false;
@@ -125,11 +125,11 @@ void UAttackActorComponent::GrapHitedCheck() {
 void UAttackActorComponent::RotateToActor() {
 	/** Rotate (Fixed Roll & Pitch) */
 
-	if (CurOwner && CurOwner->GetIsInRange()) {
-		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(GetOwner()->GetActorLocation(), CurOwner->GetAnotherLocation());
-		RotateVal.Roll = GetOwner()->GetActorRotation().Roll;
-		RotateVal.Pitch = GetOwner()->GetActorRotation().Pitch;
-		GetOwner()->SetActorRotation(RotateVal);
+	if (CurOwner) {
+		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(CurOwner->GetActorLocation(), CurOwner->GetAnotherLocation());
+		RotateVal.Roll = CurOwner->GetActorRotation().Roll;
+		RotateVal.Pitch = CurOwner->GetActorRotation().Pitch;
+		CurOwner->SetActorRotation(RotateVal);
 		ServerRotateToActor(RotateVal);
 	}
 	else UE_LOG(LogTemp, Warning, TEXT("[AttackActorCopoment_ERROR] : Roate Attack is Not Working"));

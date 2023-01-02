@@ -43,7 +43,7 @@ void ANCameraManager::BeginPlay() {
 void ANCameraManager::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 	
-	if(Players.Num() >= 2)CalculateVal();
+	if(Players.Num() >= 2) CalculateVal();
 }
 void ANCameraManager::CalculateVal() {
 	SetCameraPosition();
@@ -53,7 +53,7 @@ void ANCameraManager::CalculateVal() {
 		SetP1RelativeVal();
 		RotateDefaultScene();
 
-		if (GetCameraType() == ECameraType::ECT_3D) {
+		if (!bIsAttackView && GetCameraType() == ECameraType::ECT_3D) {
 			SetReferenceScene();
 			SetViewAllPlayers();
 
@@ -74,7 +74,20 @@ void ANCameraManager::SetReferenceScene() {
 	ReferenceScene->SetRelativeLocation(Vec);
 }
 void ANCameraManager::RotateDefaultScene() {
-	if (GetCameraType() == ECameraType::ECT_3D) {
+	if(GetCameraType() != ECameraType::ECT_3D || bIsAttackView) {
+		float AbsInnerVal = FMath::Abs(P1ToRoot_InnerVec);
+
+		if (AbsInnerVal <= 0.9f) {
+			float Force = (0.98f - AbsInnerVal) * RotateForce;
+			float YawForce = ((-IsForward * IsLeft) * Force) * UGameplayStatics::GetWorldDeltaSeconds(this);
+			DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
+		}
+		else {
+			UE_LOG(LogTemp, Warning, TEXT("[NCameraManager] Set Attacl View_False"));
+			bIsAttackView = false;
+		}
+	}
+	else if (GetCameraType() == ECameraType::ECT_3D) {
 		float P1ToReference_Length = (Players[0]->GetActorLocation() - ReferenceScene->GetComponentLocation()).Size();
 
 		/** If the P1ToReference_Length is bigger than MinRotDistance, rotate DefaultSceneRoot */
@@ -82,15 +95,6 @@ void ANCameraManager::RotateDefaultScene() {
 			/** The strength of the force increases with distance. */
 			float Force = (P1ToReference_Length - MinRotDistance) / RotationDelay;
 			float YawForce = ((IsForward * IsLeft) * Force) * UGameplayStatics::GetWorldDeltaSeconds(this);
-			DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
-		}
-	}
-	else {
-		float AbsInnerVal = FMath::Abs(P1ToRoot_InnerVec);
-
-		if (AbsInnerVal <= 0.98f) {
-			float Force = (0.98f - AbsInnerVal) * RotateForce;
-			float YawForce = ((-IsForward * IsLeft) * Force) * UGameplayStatics::GetWorldDeltaSeconds(this);
 			DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
 		}
 	}
@@ -166,6 +170,12 @@ void ANCameraManager::ServerSetPlayer_Implementation(AActor* Player) {
 }
 bool ANCameraManager::ServerSetPlayer_Validate(AActor* Player) {
 	return true;
+}
+void ANCameraManager::SetAttackView() {
+	if (GetCameraType() == ECameraType::ECT_3D) {
+		UE_LOG(LogTemp, Warning, TEXT("[NCameraManager] Set Attack View_True"));
+		bIsAttackView = true;
+	}
 }
 void ANCameraManager::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const{
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

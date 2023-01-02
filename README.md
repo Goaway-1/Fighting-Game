@@ -1982,3 +1982,62 @@
 > **<h3>Realization</h3>**
   - 개발이 그렇듯 그 상태변화에 따른 추후 공격 불가 경우 존재
     - 수정 필요..
+
+## **Day_19**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">공격중 카메라 회전</span>
+  - <img src="Image/SetAttackView.gif" height="300" title="SetAttackView">
+  - 공격 중 상대가 2타 이상 피격당한다면, 두 플레이어가 모두 잘보이도록 회전한다.
+    - 이때 회전은 이전 2D에서 사용한 로직을 일시적으로 사용하며, 각도가 회복되었을때 종료한다.
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::IsHited() {
+      if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Attack)) {
+        ...
+        /** Set Attack View */
+        if(AnotherPlayer->GetCurAttackComp()->GetComboCnt() >= 2) TargetCamera->SetAttackView();
+      }
+    }
+    ```
+    ```cpp
+    //NCameraManager.cpp
+    void ANCameraManager::RotateDefaultScene() {
+      if(GetCameraType() != ECameraType::ECT_3D || bIsAttackView) {
+        ...
+        if (AbsInnerVal <= 0.9f) { ... }
+        else {
+          UE_LOG(LogTemp, Warning, TEXT("[NCameraManager] Set Attack View_False"));
+          bIsAttackView = false;
+        }
+      }
+      ...
+    }
+    void ANCameraManager::SetAttackView() {
+      if (GetCameraType() == ECameraType::ECT_3D) {
+        UE_LOG(LogTemp, Warning, TEXT("[NCameraManager] Set Attack View_True"));
+        bIsAttackView = true;
+      }
+    }
+    ```
+    </details> 
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NCameraManager.h
+    private:
+      bool bIsAttackView = false;
+
+    public:
+      UFUNCTION()
+      void SetAttackView();	// Set Attack View : The two players look at all
+    ```
+    </details> 
+
+> **<h3>Realization</h3>**
+  - 공격 애니메이션 오류 발생으로 인한 개발 부재
+    - 상대 상태에 따른 애니메이션이 선택되다 보니 오류 발생
+    - 서버 관련 오류인줄 알고 확인하다가 많은 시간 소요
+  - Hited 이후 상태 복원 필요.
