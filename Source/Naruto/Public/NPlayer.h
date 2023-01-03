@@ -197,6 +197,7 @@ protected:
 	void SetAnotherPlayer();				// Get Another Playe
 public:
 	FORCEINLINE FVector GetAnotherLocation() { return AnotherPlayer->GetActorLocation(); }
+	FORCEINLINE bool GetAnotherPlayer() { return (AnotherPlayer) ? true: false; }
 #pragma endregion
 
 #pragma region MONTAGE
@@ -215,12 +216,20 @@ public:
 	void IsHited();
 #pragma endregion
 
-
 #pragma region BLOCK
 public:
 	FORCEINLINE void PressBlock() { PlayerCondition = EPlayerCondition::EPC_Block; }
 	FORCEINLINE void ReleaseBlock() { if(PlayerCondition == EPlayerCondition::EPC_Block) PlayerCondition = EPlayerCondition::EPC_Idle; }
 #pragma endregion
 
+public:
+	UFUNCTION()
+	void SkillEnd();
 
+public:
+	UPROPERTY(VisibleAnywhere, Category = "Widget")
+	class UUserWidget* PlayerWidget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+	TSubclassOf<class UUserWidget> NewIntroWidget;
 };

@@ -16,7 +16,13 @@ class NARUTO_API ANPlayerController : public APlayerController
 public:
 	ANPlayerController();
 protected:
-	//virtual void BeginPlay() override;
+	virtual void BeginPlay() override;
 
+public:
+	UPROPERTY(VisibleAnywhere, Category = "Widget")
+	class UUserWidget* PlayerWidget;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+	TSubclassOf<class UUserWidget> NewIntroWidget;
 
 };

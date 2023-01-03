@@ -17,6 +17,7 @@ class NARUTO_API ANWeapon : public AActor
 {
 	GENERATED_BODY()
 	
+#pragma region Default
 public:	
 	ANWeapon();
 
@@ -52,4 +53,6 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void SetCollisionONOFF(bool isSet);
+
+#pragma endregion
 };

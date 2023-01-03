@@ -220,6 +220,16 @@ void ANPlayer::Attack() {
 	if (IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
 
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
+
+	//test
+	if (IsPlayerCondition(EPlayerCondition::EPC_Skill1) || IsPlayerCondition(EPlayerCondition::EPC_Skill2)) {
+
+		//if(NewIntroWidget) UUserWidget* NewIntroWidget = CreateWidget<UUserWidget>(GetWorld(), UUserWidget::StaticClass());
+
+		//UMediaPlayer* MyMediaPlayer = NewObject<UMediaPlayer>();
+		//MyMediaPlayer->Play();
+		//MyMediaPlayer->OpenSource(IntroMovie);
+	}
 }
 void ANPlayer::IsHited() {
 	SetPlayerCondition(EPlayerCondition::EPC_Hited);
@@ -248,6 +258,9 @@ void ANPlayer::IsHited() {
 		/** Set Attack View */
 		if (AnotherPlayer->GetCurAttackComp()->GetComboCnt() >= 2) TargetCamera->SetAttackView();
 	}
+}
+void ANPlayer::SkillEnd() {
+	UE_LOG(LogTemp, Warning, TEXT("Skill is End"));
 }
 void ANPlayer::Chacra() {
 	if (!IsCanMove()) return;

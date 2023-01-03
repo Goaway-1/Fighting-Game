@@ -73,16 +73,15 @@ void UAttackActorComponent::Attack() {
 			if(ChacraCom->GetChacraCnt() == 1) {
 				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill1);
 				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
-				//CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, true);
+				//CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, CurOwner->GetPlayerCondition());
 				ChacraCom->ResetChacraCnt();
 			}
 			else {
 				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill2);
 				UE_LOG(LogTemp, Warning, TEXT("Chacra2 Attack"));
+				//CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[1], 1.f, CurOwner->GetPlayerCondition());
 				ChacraCom->ResetChacraCnt();
 			}
-
-			EndAttack(); // 임시 (삭제)
 		}
 		else {	
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
@@ -125,7 +124,7 @@ void UAttackActorComponent::GrapHitedCheck() {
 void UAttackActorComponent::RotateToActor() {
 	/** Rotate (Fixed Roll & Pitch) */
 
-	if (CurOwner) {
+	if (CurOwner && CurOwner->GetAnotherPlayer()) {
 		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(CurOwner->GetActorLocation(), CurOwner->GetAnotherLocation());
 		RotateVal.Roll = CurOwner->GetActorRotation().Roll;
 		RotateVal.Pitch = CurOwner->GetActorRotation().Pitch;
