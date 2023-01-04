@@ -98,4 +98,14 @@ public:
 	/** Dash */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_ChacraDash;
+
+	/** Skill Media */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TArray<class UMediaSource*> MS_Skill;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_AttackerSkillEnd;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_VitcimSkillEnd;
 };

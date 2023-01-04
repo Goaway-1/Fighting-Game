@@ -1,4 +1,5 @@
 #include "NPlayer.h"
+#include "NPlayerController.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/CapsuleComponent.h"
@@ -67,11 +68,10 @@ void ANPlayer::BeginPlay() {
 
 		if (TargetCamera) {
 			CameraManager = TargetCamera;
-			APlayerController* ControllComp = Cast<APlayerController>(GetController());
-			if (ControllComp) {
-				PlayerControlComp = ControllComp;
-				PlayerControlComp->bAutoManageActiveCameraTarget = false;
-				PlayerControlComp->ClientSetViewTarget(CameraManager);
+			MainPlayerController = Cast<ANPlayerController>(GetController());
+			if (MainPlayerController) {
+				MainPlayerController->bAutoManageActiveCameraTarget = false;
+				MainPlayerController->ClientSetViewTarget(CameraManager);
 			}
 		}
 		else GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Error! MainCameraManager does not exist in the world!"));
@@ -95,9 +95,11 @@ void ANPlayer::Tick(float DeltaTime) {
 	/** Setting the rotation of the controller according to the rotation of the CameraManager */
 	if (CameraManager && HasAuthority()) {
 		FRotator NRot = FRotator(CameraManager->GetActorRotation().Pitch, CameraManager->GetActorRotation().Yaw, GetController()->GetControlRotation().Roll);
-		APlayerController* PController = Cast<APlayerController>(GetController());
-		if (PController) {
-			PController->ClientSetRotation(NRot);
+		if (MainPlayerController) {
+			MainPlayerController->ClientSetRotation(NRot);
+		}
+		else {
+			MainPlayerController = Cast<ANPlayerController>(GetController());
 		}
 	}
 
@@ -163,7 +165,7 @@ void ANPlayer::MoveRight(float Value) {
 	else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
 }
 bool ANPlayer::IsCanMove() {
-	if(IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
+	if(IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
 	else return true;
 }
 void ANPlayer::Jump() {
@@ -217,25 +219,23 @@ void ANPlayer::SetWeapon() {
 	}
 }
 void ANPlayer::Attack() {
-	if (IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
+	if (IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
 
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
-
-	//test
-	if (IsPlayerCondition(EPlayerCondition::EPC_Skill1) || IsPlayerCondition(EPlayerCondition::EPC_Skill2)) {
-
-		//if(NewIntroWidget) UUserWidget* NewIntroWidget = CreateWidget<UUserWidget>(GetWorld(), UUserWidget::StaticClass());
-
-		//UMediaPlayer* MyMediaPlayer = NewObject<UMediaPlayer>();
-		//MyMediaPlayer->Play();
-		//MyMediaPlayer->OpenSource(IntroMovie);
-	}
 }
-void ANPlayer::IsHited() {
+void ANPlayer::IsHited(EPlayerCondition Condition) {
 	SetPlayerCondition(EPlayerCondition::EPC_Hited);
+	UE_LOG(LogTemp, Warning, TEXT("Hited Another Condition : %d"),AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1));
 
 	/** Check Attack Information... (Normal or Skill) */
-	if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Grap)) {
+	if (Condition == EPlayerCondition::EPC_Skill1 || Condition == EPlayerCondition::EPC_Skill2) {
+		
+		/** Play CutScene if Skill */
+		int SkillIdx = (Condition == EPlayerCondition::EPC_Skill1) ? 0: 1;
+		ClientPlayScene(false, SkillIdx);
+		AnotherPlayer->ClientPlayScene(true, SkillIdx);
+	}
+	else if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Grap)) {
 		UE_LOG(LogTemp, Warning, TEXT("%s Grap %s"), *AnotherPlayer->GetName(), *this->GetName());
 
 		/** Set Victim  Rotate & Location */
@@ -259,8 +259,29 @@ void ANPlayer::IsHited() {
 		if (AnotherPlayer->GetCurAttackComp()->GetComboCnt() >= 2) TargetCamera->SetAttackView();
 	}
 }
-void ANPlayer::SkillEnd() {
-	UE_LOG(LogTemp, Warning, TEXT("Skill is End"));
+void ANPlayer::ClientPlayScene_Implementation(bool bisAttacker, int idx) {
+	//TODO: 상태 변환 추가
+	UE_LOG(LogTemp, Warning, TEXT("Client TRY Scene"));
+	if (bisAttacker) {
+		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_AttackerSkillEnd);
+	}
+	else {
+		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_VitcimSkillEnd);
+	}
+
+	//MultiPlayScene(bisAttacker,idx);
+}
+void ANPlayer::MultiPlayScene_Implementation(bool bisAttacker, int idx) {
+	UE_LOG(LogTemp, Warning, TEXT("Muti TRY Scene"));
+	if (bisAttacker) {
+		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_AttackerSkillEnd);
+	}
+	else {
+		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_VitcimSkillEnd);
+	}
+}
+bool ANPlayer::MultiPlayScene_Validate(bool bisAttacker, int idx) {
+	return true;
 }
 void ANPlayer::Chacra() {
 	if (!IsCanMove()) return;

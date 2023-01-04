@@ -22,7 +22,22 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Widget")
 	class UUserWidget* PlayerWidget;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
-	TSubclassOf<class UUserWidget> NewIntroWidget;
+	UPROPERTY(VisibleAnywhere, Category = "Widget")
+	class UCutSceneWidget* CutSceneWidget;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+	TSubclassOf<class UUserWidget> MainSource;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+	TSubclassOf<class UUserWidget> CutSceneSource;
+	
+protected:
+	class UAnimMontage* EndMongtage;
+
+public:
+	UFUNCTION()
+	void PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage);		// Play Cut Scene in Widget : IN LOCAL
+	
+	UFUNCTION()
+	void EndCutScene();														// Play  End Montage each Player's
 };

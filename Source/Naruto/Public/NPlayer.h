@@ -18,7 +18,8 @@ enum class EPlayerCondition : uint8 {
 	EPC_Attack			UMETA(DisplayName = "Attack"),
 	EPC_Grap			UMETA(DisplayName = "Grap"),	//잡기
 	EPC_Skill1			UMETA(DisplayName = "Skill1"),
-	EPC_Skill2			UMETA(DisplayName = "Skill2")
+	EPC_Skill2			UMETA(DisplayName = "Skill2"),
+	EPC_CantMove		UMETA(DisplayName = "CantMove")	//CutScene 실행중에는 움직일 수 없음
 };
 
 UCLASS()
@@ -41,9 +42,13 @@ protected:
 
 	class ANCameraManager* CameraManager;
 
-	APlayerController* PlayerControlComp;
+	class ANPlayerController* MainPlayerController;
 
 	ANCameraManager* TargetCamera;
+
+public:
+	UFUNCTION()
+	FORCEINLINE ANPlayerController* GetMainController() { return MainPlayerController;}
 
 #pragma region PLAYERCONDITION
 public:
@@ -213,7 +218,7 @@ public:
 #pragma region HITED
 public:
 	UFUNCTION()
-	void IsHited();
+	void IsHited(EPlayerCondition Condition);
 #pragma endregion
 
 #pragma region BLOCK
@@ -222,14 +227,11 @@ public:
 	FORCEINLINE void ReleaseBlock() { if(PlayerCondition == EPlayerCondition::EPC_Block) PlayerCondition = EPlayerCondition::EPC_Idle; }
 #pragma endregion
 
-public:
-	UFUNCTION()
-	void SkillEnd();
+public:	
+	UFUNCTION(Client, Reliable)
+	void ClientPlayScene(bool bisAttacker, int idx = 0);					// Play Scene IN LOCAL
 
-public:
-	UPROPERTY(VisibleAnywhere, Category = "Widget")
-	class UUserWidget* PlayerWidget;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
-	TSubclassOf<class UUserWidget> NewIntroWidget;
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiPlayScene(bool bisAttacker, int idx = 0);
 };

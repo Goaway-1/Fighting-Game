@@ -47,7 +47,7 @@ void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 
 		// 피격 몽타주 실행 : AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
 		ANPlayer* victim = Cast<ANPlayer>(OtherActor);
-		victim->IsHited();
+		victim->IsHited(OwnPlayer->GetPlayerCondition());
 	}
 }
 void ANWeapon::SetCollisionONOFF(bool isSet) {

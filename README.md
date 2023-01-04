@@ -2041,3 +2041,266 @@
     - 상대 상태에 따른 애니메이션이 선택되다 보니 오류 발생
     - 서버 관련 오류인줄 알고 확인하다가 많은 시간 소요
   - Hited 이후 상태 복원 필요.
+
+## **Day_20**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">차크라 공격에 대한 로직</span>
+  1. 컷 씬을 사용한 처리
+    - 차크라 공격이 피격 처리되면, 사전에 미리 녹화한 컷 씬을 보여주어 처리한다.
+    - 하지만 이는 씬이 2번 이상 시전되거나, 바로 시전되지 않고 조금 있다가 시전되는등 구현에 있어 어려움이 존재했다.   
+      - 기존 Charactor에 비해 카메라가 PlayerController에게 타켓팅되어 있기 때문이 아닌가라고 조심스럽게 생각해본다.
+    - 궁극적으로 현재 맵 상태에 카메라가 적용되는 것이기 때문에, 구현하려는 것에 어려움이 존재한다.
+      - 그래서 2번안으로 선택하으며, 아래는 도전했던 코드이다..
+      - 참고로 모듈도 추가해주어야한다.
+
+      ```cpp
+      //NPlayer.cpp
+      if (IsPlayerCondition(EPlayerCondition::EPC_Skill1) || IsPlayerCondition(EPlayerCondition::EPC_Skill2)) {
+        UE_LOG(LogTemp, Warning, TEXT("Sequence is Started"));
+        FMovieSceneSequencePlaybackSettings PlaybackSettings;
+        ALevelSequenceActor* OutActor = nullptr;
+        if (ChangeSequence) {
+          ULevelSequencePlayer* LevelSequencePlayer = ULevelSequencePlayer::CreateLevelSequencePlayer(
+            GetWorld(),
+            ChangeSequence,
+            FMovieSceneSequencePlaybackSettings(),
+            OutActor
+          );
+          // 시네머신 시퀀스가 끝나면 실행해야할 함수를 이벤트 할당 하였다.
+          //LevelSequencePlayer->OnFinished.AddDynamic(this, &ANPlayer::SkillEnd);
+          LevelSequencePlayer->Play();
+        }
+      }
+      ```
+
+  2. 영상을 플레이하여 처리
+    - 스킬에 맞는 각 영상을 만들어두고, 피격시 영상을 보여준다. 
+    - 이때 사용자는 움직이지 못하며, 끝나는 시점에 적 플레이어를 날라가도록 설정하여 실감을 더한다.
+    - 이 구현은 아래에서 진행한다.
+
+- ## <span style = "color:yellow;">차크라 공격 로직(영상 활용)</span>
+  - <img src="Image/TestVideo.gif" height="300" title="TestVideo">
+  - <img src="Image/VideoWidget.png" height="300" title="VideoWidget">
+  - <img src="Image/Set_VideoWidget.png" height="300" title="Set_VideoWidget">
+  - 위에서 설명한 것처럼 영상으로 처리하기 위한 로직 : (모듈 "UMG"추가)
+    - 그림처럼 Widget은 "캔버스와 이미지"로 구성되어 있으며, 이미지에 영상을 띄우는 원리
+    - 현재는 Widget을 생성하면 바로 영상이 띄워지도록 되어있기에 수정 필요. (테스트 단계)
+  - PlayerController에 Widget을 추가하는 원리
+    - 즉, 다음에는 새로운 Widget을 만들고, 특정 입력이 들어오면 해당 Widget의 메서드를 활성화하여 영상이 띄워지도록 구현...
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //NPlayerController.cpp
+    void ANPlayerController::BeginPlay() {
+      if (NewIntroWidget) {
+        PlayerWidget = CreateWidget<UUserWidget>(this, NewIntroWidget);
+        if (PlayerWidget) {
+          PlayerWidget->AddToViewport();
+          PlayerWidget->SetVisibility(ESlateVisibility::Visible);
+        }
+      }
+    }
+    ```
+    </details> 
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayerController.h
+    public:
+      UPROPERTY(VisibleAnywhere, Category = "Widget")
+      class UUserWidget* PlayerWidget;
+
+      UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+      TSubclassOf<class UUserWidget> NewIntroWidget;
+    ```
+    </details> 
+
+> **<h3>Realization</h3>**
+  - 힘들다
+
+## **Day_21**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">컷씬 위젯</span> 
+  - <img src="Image/Play_TestCutScene.gif" height="300" title="Play_TestCutScene">
+  - 이전날과 동일하게 위젯을 PlayerController에 추가하여 사용하는데, UUserWidget클래스를 상속받고 추상화하여 제작한 CutSceneWidget을 추가
+    - Hited되면 Controller에서 CutScene위젯의 메서드를 실행하여 영상을 실행.
+    - 영상이 종료되면, 화면을 지울 수 있도록 MediaPlayer의 OnEndReached에 델리케이트 연결하여 처리
+  - 영상은 현재 기존 AttackStruct의 몽타주와 함께 저장되어 있음
+    - 추후 무기에 따른 애니메이션이나 영상이 재생되어야 하기 때문에, struct와 DataTable을 사용할 예정
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //NPlayerController.cpp
+    void ANPlayerController::BeginPlay() {
+      if (IsLocalController() && MainSource && CutSceneSource) {
+        PlayerWidget = CreateWidget<UUserWidget>(this, MainSource);
+        CutSceneWidget = CreateWidget<UCutSceneWidget>(this, CutSceneSource);
+        if (PlayerWidget && CutSceneWidget) {
+          PlayerWidget->AddToViewport();
+          PlayerWidget->SetVisibility(ESlateVisibility::Visible);
+          CutSceneWidget->AddToViewport();
+          CutSceneWidget->SetVisibility(ESlateVisibility::Hidden);
+        }
+      }
+    }
+    void ANPlayerController::PlayCutScene(UMediaSource* Source) {
+      CutSceneWidget->SetVisibility(ESlateVisibility::Visible);
+      CutSceneWidget->PlayCutScene(Source);
+    }
+    ```
+    ```cpp
+    //UCutSceneWidget.cpp
+    #include "CutSceneWidget.h"
+    #include "MediaPlayer.h"
+    #include "NPlayerController.h"
+    #include "Components/Image.h"
+    void UCutSceneWidget::NativeConstruct() {
+      MediaPlayer->OnEndReached.AddDynamic(this, &UCutSceneWidget::StopCutScene);
+    }
+    void UCutSceneWidget::PlayCutScene(UMediaSource* Source) {
+      if(Source) {
+        bIsPlaying = true;
+        MediaPlayer->OpenSource(Source);
+        VideoImage->SetVisibility(ESlateVisibility::Visible);	
+      }
+      else UE_LOG(LogTemp, Error, TEXT("[PlayCutScene] There is no MediaSource"))
+    }
+    void UCutSceneWidget::StopCutScene() {
+      bIsPlaying = false;
+      MediaPlayer->Rewind();
+      MediaPlayer->Pause();
+      VideoImage->SetVisibility(ESlateVisibility::Hidden);
+    }
+    ```
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::IsHited() {
+      ...
+      if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1) || AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill2)) {
+        UE_LOG(LogTemp, Warning, TEXT("TRY Scene"));
+
+        ClientPlayScene();
+        AnotherPlayer->ClientPlayScene();
+      }
+    }
+    void ANPlayer::ClientPlayScene_Implementation() {
+      GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[0]);
+    }
+    ```
+    </details> 
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayerController.h
+    public:
+      UPROPERTY(VisibleAnywhere, Category = "Widget")
+      class UUserWidget* PlayerWidget;
+
+      UPROPERTY(VisibleAnywhere, Category = "Widget")
+      class UCutSceneWidget* CutSceneWidget;
+
+      UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+      TSubclassOf<class UUserWidget> MainSource;
+
+      UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+      TSubclassOf<class UUserWidget> CutSceneSource;
+    public:
+      UFUNCTION()
+      void PlayCutScene(UMediaSource* Source);      // Play Cut Scene in Widget : IN LOCAL
+    ```
+    ```cpp
+    //UCutSceneWidget.h
+    UCLASS(Abstract)
+    class NARUTO_API UCutSceneWidget : public UUserWidget
+    {
+      GENERATED_BODY()
+    public:
+      virtual void NativeConstruct() override;
+
+    protected:
+      UPROPERTY(meta = (BindWidget))
+      class UImage* VideoImage;
+
+      UPROPERTY(EditAnywhere, category="CutScene")
+      class UMediaPlayer* MediaPlayer;
+
+      UPROPERTY(VisibleAnywhere, category = "CutScene")
+      bool bIsPlaying = false;
+    public:
+      UFUNCTION()
+      void PlayCutScene(UMediaSource* Source);       
+
+      UFUNCTION()
+      void StopCutScene();
+    };
+    ```
+    ```cpp
+    //ANPlayer.h
+    public:	
+      UFUNCTION(Client, Reliable)
+      void ClientPlayScene();       // Play Scene IN LOCAL
+    ```
+    </details> 
+
+- ## <span style = "color:yellow;">컷씬 위젯 완료</span> 
+  - <img src="Image/Play_ChacraCutScene.gif" height="300" title="Play_ChacraCutScene">
+  - 기존 테스트 컷씬을 삭제하고, 새롭게 영상을 제작하였다.
+    - AtoB (2개), BtoA(2개)
+  - 추가로 컷씬이 종료되면, 공격자와 피격자가 각각 애니메이션을 진행하고 움직일 수 있게 된다. (EndCutScene())
+    - 즉 현재 애니메이션이 진행 중인 상태를 추가하였다. (EPC_CantMove) 
+
+    <details><summary>Header File</summary> 
+    
+    ```cpp
+    //ANPlayerController.cpp
+    void ANPlayerController::PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage) {
+      CutSceneWidget->SetVisibility(ESlateVisibility::Visible);
+      CutSceneWidget->PlayCutScene(Source);
+
+      /** Set Montage & Condition */
+      EndMongtage = Mongtage;			
+      ANPlayer* OwnPlayer = Cast<ANPlayer>(GetCharacter());
+      OwnPlayer->SetPlayerCondition(EPlayerCondition::EPC_CantMove);
+    }
+    void ANPlayerController::EndCutScene() {
+      if (EndMongtage) {
+        ANPlayer* OwnPlayer = Cast<ANPlayer>(GetCharacter());
+        OwnPlayer->GetMontageManager()->PlayNetworkMontage(EndMongtage, 1.f, EPlayerCondition::EPC_Idle,0);
+      }
+    }
+    ```
+    ```cpp
+    //UCutSceneWidget.cpp
+    void UCutSceneWidget::StopCutScene() {
+      ...
+      // Play Animation Monatge if End Cut Scene..
+      ANPlayerController* OnwerController =  Cast<ANPlayerController>(GetOwningPlayer());
+      if(OnwerController) OnwerController->EndCutScene();
+    }
+    ```
+    </details> 
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //ANPlayerController.h
+    protected:
+      class UAnimMontage* EndMongtage;
+
+    public:
+      UFUNCTION()
+      void PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage);		// Play Cut Scene in Widget : IN LOCAL
+      
+      UFUNCTION()
+      void EndCutScene();														// Play  End Montage each Player's
+    ```
+    </details> 
+
+> **<h3>Realization</h3>**
+  - 영상은 현재 기존 AttackStruct의 몽타주와 함께 저장되어 있음
+    - 추후 무기에 따른 애니메이션이나 영상이 재생되어야 하기 때문에, struct와 DataTable을 사용할 예정
+  - Media 용량이 크면 끝날때 지연되는 문제가 발생한다.
+    - 4M인데도 걸림.;
+    - 그래서 다른 곳에 띄워두고, 카메라의 전환으로 처리할까 생각 중..
+  - 추가적으로 클라이언트에서 실행되지 않던 문제를 해결해야한다.

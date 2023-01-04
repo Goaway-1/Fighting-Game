@@ -2,6 +2,7 @@
 #include "ChacraActorComponent.h"
 #include "NPlayerState.h"
 #include "NPlayer.h"
+#include "NPlayerController.h"
 #include "MontageManager.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -71,15 +72,15 @@ void UAttackActorComponent::Attack() {
 		}
 		else if (ChacraCom->GetChacraCnt() > 0) {
 			if(ChacraCom->GetChacraCnt() == 1) {
-				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill1);
 				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
-				//CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, CurOwner->GetPlayerCondition());
+				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill1);
+				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, CurOwner->GetPlayerCondition());
 				ChacraCom->ResetChacraCnt();
 			}
 			else {
-				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill2);
 				UE_LOG(LogTemp, Warning, TEXT("Chacra2 Attack"));
-				//CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[1], 1.f, CurOwner->GetPlayerCondition());
+				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill2);
+				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[1], 1.f, CurOwner->GetPlayerCondition());
 				ChacraCom->ResetChacraCnt();
 			}
 		}
