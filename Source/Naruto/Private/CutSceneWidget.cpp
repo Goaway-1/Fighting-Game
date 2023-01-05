@@ -4,14 +4,17 @@
 #include "Components/Image.h"
 
 void UCutSceneWidget::NativeConstruct() {
-	MediaPlayer->OnEndReached.AddDynamic(this, &UCutSceneWidget::StopCutScene);
 }
 
-void UCutSceneWidget::PlayCutScene(UMediaSource* Source) {
+void UCutSceneWidget::PlayCutScene(UMediaSource* Source, float MediaLength) {
 	if(Source) {
 		UE_LOG(LogTemp, Warning, TEXT("Sceneing.."));
 		MediaPlayer->OpenSource(Source);
 		VideoImage->SetVisibility(ESlateVisibility::Visible);	
+
+		/** Set End Scene Timer... */
+		GetWorld()->GetTimerManager().ClearTimer(StopMediaHandle);
+		GetWorld()->GetTimerManager().SetTimer(StopMediaHandle, this, &UCutSceneWidget::StopCutScene, MediaLength, false);
 	}
 	else UE_LOG(LogTemp, Error, TEXT("[PlayCutScene] There is no MediaSource"))
 }

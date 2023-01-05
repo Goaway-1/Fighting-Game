@@ -32,12 +32,13 @@ public:
 	TSubclassOf<class UUserWidget> CutSceneSource;
 	
 protected:
+	UPROPERTY()
 	class UAnimMontage* EndMongtage;
 
 public:
 	UFUNCTION()
-	void PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage);		// Play Cut Scene in Widget : IN LOCAL
+	void PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage,float MediaLength);		// Play Cut Scene in Widget : IN LOCAL
 	
 	UFUNCTION()
-	void EndCutScene();														// Play  End Montage each Player's
+	void EndCutScene();																		// Play  End Montage each Player's
 };

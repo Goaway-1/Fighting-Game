@@ -20,9 +20,12 @@ protected:
 
 	UPROPERTY(EditAnywhere, category="CutScene")
 	class UMediaPlayer* MediaPlayer;
+
+	UPROPERTY()
+	FTimerHandle StopMediaHandle;
 public:
 	UFUNCTION()
-	void PlayCutScene(UMediaSource* Source);
+	void PlayCutScene(UMediaSource* Source, float MediaLength);
 
 	UFUNCTION()
 	void StopCutScene();

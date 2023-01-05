@@ -10,6 +10,7 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/PlayerState.h"
+#include "Camera/CameraComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "AttackActorComponent.h"
 #include "ChacraActorComponent.h"
@@ -223,15 +224,14 @@ void ANPlayer::Attack() {
 
 	CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
-void ANPlayer::IsHited(EPlayerCondition Condition) {
+void ANPlayer::IsHited() {
 	SetPlayerCondition(EPlayerCondition::EPC_Hited);
-	UE_LOG(LogTemp, Warning, TEXT("Hited Another Condition : %d"),AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1));
-
 	/** Check Attack Information... (Normal or Skill) */
-	if (Condition == EPlayerCondition::EPC_Skill1 || Condition == EPlayerCondition::EPC_Skill2) {
+	if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1) || AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill2)) {
 		
 		/** Play CutScene if Skill */
-		int SkillIdx = (Condition == EPlayerCondition::EPC_Skill1) ? 0: 1;
+		UE_LOG(LogTemp, Warning, TEXT("%s Skill %s"), *AnotherPlayer->GetName(), *this->GetName());
+		int SkillIdx = (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1)) ? 0: 1;
 		ClientPlayScene(false, SkillIdx);
 		AnotherPlayer->ClientPlayScene(true, SkillIdx);
 	}
@@ -260,27 +260,29 @@ void ANPlayer::IsHited(EPlayerCondition Condition) {
 	}
 }
 void ANPlayer::ClientPlayScene_Implementation(bool bisAttacker, int idx) {
-	//TODO: 상태 변환 추가
-	UE_LOG(LogTemp, Warning, TEXT("Client TRY Scene"));
+	SetPlayerCondition(EPlayerCondition::EPC_CantMove);
 	if (bisAttacker) {
-		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_AttackerSkillEnd);
+		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx].MS_SkillMedia, GetMontageManager()->GetActionMontage().MS_Skill[idx].MT_AttackerSkillEnd, GetMontageManager()->GetActionMontage().MS_Skill[idx].MediaLength);
 	}
 	else {
-		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_VitcimSkillEnd);
-	}
-
-	//MultiPlayScene(bisAttacker,idx);
-}
-void ANPlayer::MultiPlayScene_Implementation(bool bisAttacker, int idx) {
-	UE_LOG(LogTemp, Warning, TEXT("Muti TRY Scene"));
-	if (bisAttacker) {
-		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_AttackerSkillEnd);
-	}
-	else {
-		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx], GetMontageManager()->GetActionMontage().MT_VitcimSkillEnd);
+		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx].MS_SkillMedia, GetMontageManager()->GetActionMontage().MS_Skill[idx].MT_VitcimSkillEnd, GetMontageManager()->GetActionMontage().MS_Skill[idx].MediaLength);
 	}
 }
-bool ANPlayer::MultiPlayScene_Validate(bool bisAttacker, int idx) {
+void ANPlayer::SetPlayerCondition(EPlayerCondition NewCondition) {
+	PlayerCondition = NewCondition;
+	//로그 띄워서ㅓ 확인하고, 움직이지 못하도록 수자ㅓㅇ..
+	ServerSetPlayerCondition(NewCondition);
+}
+void ANPlayer::MultiSetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
+	PlayerCondition = NewCondition;
+}
+bool ANPlayer::MultiSetPlayerCondition_Validate(EPlayerCondition NewCondition) {
+	return true;
+}
+void ANPlayer::ServerSetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
+	MultiSetPlayerCondition(NewCondition);
+}
+bool ANPlayer::ServerSetPlayerCondition_Validate(EPlayerCondition NewCondition) {
 	return true;
 }
 void ANPlayer::Chacra() {

@@ -55,8 +55,15 @@ public:
 	UFUNCTION()
 	FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
 
+	// @TODO : 오류 방지를 위한 임시방편이기에 수정필요
 	UFUNCTION(BlueprintCallable)
-	FORCEINLINE void SetPlayerCondition(EPlayerCondition NewCondition) { PlayerCondition = NewCondition; }
+	void SetPlayerCondition(EPlayerCondition NewCondition);		
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiSetPlayerCondition(EPlayerCondition NewCondition);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetPlayerCondition(EPlayerCondition NewCondition);
 
 	UFUNCTION()
 	FORCEINLINE bool IsPlayerCondition(EPlayerCondition Condition) { return (PlayerCondition == Condition); }
@@ -218,7 +225,7 @@ public:
 #pragma region HITED
 public:
 	UFUNCTION()
-	void IsHited(EPlayerCondition Condition);
+	void IsHited();
 #pragma endregion
 
 #pragma region BLOCK
@@ -230,8 +237,4 @@ public:
 public:	
 	UFUNCTION(Client, Reliable)
 	void ClientPlayScene(bool bisAttacker, int idx = 0);					// Play Scene IN LOCAL
-
-
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MultiPlayScene(bool bisAttacker, int idx = 0);
 };

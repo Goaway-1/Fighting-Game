@@ -55,10 +55,20 @@ public:
 	/** For Access from NWeapon*/
 	UFUNCTION()
 	FORCEINLINE int16 GetComboCnt() { return ComboCnt; }
-private:
-	//FName GetAttackMontageSection(int32 Section);	// Retrun MontageNumber
 
-	UPROPERTY(VisibleAnyWhere)
+	/** Controll ComboCnt 
+	* @TODO : 오류 방지를 위한 임시방편이기에 수정필요
+	*/
+	UFUNCTION()
+	void SetComoboCnt(int16 cnt);		
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiSetComoboCnt(int16 cnt);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetComboCnt(int16 cnt);
+private:
+	UPROPERTY(Replicated, VisibleAnyWhere)
 	int16 ComboCnt = 1;			
 	
 	UPROPERTY(VisibleAnyWhere)
@@ -68,10 +78,10 @@ private:
 	bool bIsAttackCheck = false;	// In case of attack input during attack
 
 	UPROPERTY(VisibleAnyWhere)
-	EKeyUpDown CurKeyUD;			// Current UP Key Value
+	EKeyUpDown CurKeyUD = EKeyUpDown::EKUD_Default;			// Current UP Key Value
 
 	UPROPERTY(VisibleAnyWhere)
-	EKeyUpDown TmpKeyUD;			// Tmp UP Key Value
+	EKeyUpDown TmpKeyUD = EKeyUpDown::EKUD_Default;			// Tmp UP Key Value
 
 	UPROPERTY(Replicated, VisibleAnyWhere)
 	TArray<AActor*> OverlapActors;	// OverlapActor's Array

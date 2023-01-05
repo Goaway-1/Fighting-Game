@@ -63,9 +63,24 @@ public:
     /** 2개로 고정 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<class UAnimMontage*> MTChacra_Attacker;
+};
+
+USTRUCT(Atomic, BlueprintType)
+struct FChacraSkill
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UMediaSource* MS_SkillMedia;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<class UAnimMontage*> MTChacra_Victim;
+	float MediaLength;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_AttackerSkillEnd;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_VitcimSkillEnd;
 };
 
 /** 공격 몽타주 */
@@ -101,11 +116,5 @@ public:
 
 	/** Skill Media */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	TArray<class UMediaSource*> MS_Skill;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	class UAnimMontage* MT_AttackerSkillEnd;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	class UAnimMontage* MT_VitcimSkillEnd;
+	TArray<FChacraSkill> MS_Skill;
 };

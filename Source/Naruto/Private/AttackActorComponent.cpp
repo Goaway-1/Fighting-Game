@@ -8,23 +8,14 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 
-UAttackActorComponent::UAttackActorComponent(){
+UAttackActorComponent::UAttackActorComponent() {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicated(true);
-
-	ComboCnt = 1;
-	bAttacking = false;
-	bIsAttackCheck = false;
-	CurKeyUD = EKeyUpDown::EKUD_Default;
-	TmpKeyUD = EKeyUpDown::EKUD_Default;
-
-	/** ROTATE */
-	InRangeActor = nullptr;
 }
-void UAttackActorComponent::BeginPlay(){
+void UAttackActorComponent::BeginPlay() {
 	Super::BeginPlay();
 }
-void UAttackActorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction){
+void UAttackActorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 }
@@ -88,6 +79,7 @@ void UAttackActorComponent::Attack() {
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
 			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker) && !CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
 				ComboCnt = 1;
+				SetComoboCnt(ComboCnt);
 				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, CurOwner->GetPlayerCondition(), 1);
 			}
 			else {
@@ -103,10 +95,12 @@ void UAttackActorComponent::EndAttack() {
 	bAttacking = false;
 	CurKeyUD = EKeyUpDown::EKUD_Default;
 	ComboCnt = 1;
+	SetComoboCnt(ComboCnt);
 }
 void UAttackActorComponent::AttackInputCheck() {
 	if (bIsAttackCheck) {
 		ComboCnt++;
+		SetComoboCnt(ComboCnt);
 		if (CurOwner->GetMontageManager()->GetActionMontage().splitIdx == ComboCnt) CurKeyUD = TmpKeyUD;
 		bIsAttackCheck = false;
 		Attack();
@@ -148,9 +142,27 @@ void UAttackActorComponent::ServerRotateToActor_Implementation(FRotator Rot) {
 bool UAttackActorComponent::ServerRotateToActor_Validate(FRotator Rot) {
 	return true;
 }
+void UAttackActorComponent::SetComoboCnt(int16 cnt){
+	ComboCnt = cnt;
+
+	ServerSetComboCnt(cnt);
+}
+void UAttackActorComponent::MultiSetComoboCnt_Implementation(int16 cnt) {
+	ComboCnt = cnt;
+}
+bool UAttackActorComponent::MultiSetComoboCnt_Validate(int16 cnt) {
+	return true;
+}
+void UAttackActorComponent::ServerSetComboCnt_Implementation(int16 cnt) {
+	MultiSetComoboCnt(cnt);
+}
+bool UAttackActorComponent::ServerSetComboCnt_Validate(int16 cnt) {
+	return true;
+}
 void UAttackActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(UAttackActorComponent, OverlapActors);
 	DOREPLIFETIME(UAttackActorComponent, InRangeActor);
+	DOREPLIFETIME(UAttackActorComponent, ComboCnt);
 }

@@ -13,7 +13,7 @@ FName UMontageManager::GetAttackMontageSection(int32 Section) {
 void UMontageManager::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx) {
 	if (MainAnimInstance) {
 		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
-		if (Condition == EPlayerCondition::EPC_Attack) {
+		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_Hited) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
 		else if (Condition == EPlayerCondition::EPC_Grap && idx == 1) {	//弊乏 付公府
@@ -26,7 +26,7 @@ void UMontageManager::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate,
 void UMontageManager::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongtage,float PlayRate, EPlayerCondition Condition, int idx) {
 	if (MainAnimInstance) {
 		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
-		if (Condition == EPlayerCondition::EPC_Attack) {
+		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_Hited) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
 		else if(Condition == EPlayerCondition::EPC_Grap && idx == 1) {	//弊乏 付公府

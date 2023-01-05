@@ -20,15 +20,13 @@ void ANPlayerController::BeginPlay() {
 	}
 }
 
-void ANPlayerController::PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage) {
+void ANPlayerController::PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage, float MediaLength) {
 	UE_LOG(LogTemp, Warning, TEXT("Start Skill Cut Scene"));
 	CutSceneWidget->SetVisibility(ESlateVisibility::Visible);
-	CutSceneWidget->PlayCutScene(Source);
+	CutSceneWidget->PlayCutScene(Source, MediaLength);
 
 	/** Set Montage & Condition */
 	EndMongtage = Mongtage;			
-	ANPlayer* OwnPlayer = Cast<ANPlayer>(GetCharacter());
-	OwnPlayer->SetPlayerCondition(EPlayerCondition::EPC_CantMove);
 }
 void ANPlayerController::EndCutScene() {
 	if (EndMongtage) {

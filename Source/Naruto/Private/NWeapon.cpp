@@ -45,9 +45,9 @@ void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
 		AttackController->SetOverlapActors(OtherActor);
 
-		// 피격 몽타주 실행 : AttackActorComponent의 MontageArr와 ComboCnt만 넘긴다.
+		// 피격 몽타주 실행
 		ANPlayer* victim = Cast<ANPlayer>(OtherActor);
-		victim->IsHited(OwnPlayer->GetPlayerCondition());
+		victim->IsHited();
 	}
 }
 void ANWeapon::SetCollisionONOFF(bool isSet) {
