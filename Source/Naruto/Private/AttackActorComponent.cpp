@@ -77,13 +77,22 @@ void UAttackActorComponent::Attack() {
 		}
 		else {	
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
-			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker) && !CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker)) {	//공격중이 아닐때 (처음 공격)
+			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker) &&
+				!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker) && 
+				!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker)) {	// First Attack...
 				ComboCnt = 1;
 				SetComoboCnt(ComboCnt);
 				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, CurOwner->GetPlayerCondition(), 1);
 			}
 			else {
-				if (CurKeyUD == EKeyUpDown::EKUD_Up) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+				if (CurKeyUD == EKeyUpDown::EKUD_Up) {
+					CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+					if (ComboCnt == 5) {
+						// @TODO : 올려치기...
+						UE_LOG(LogTemp, Warning, TEXT("Upper Attack!"));
+						CurOwner->SetPlayerCondition(EPlayerCondition::EPC_UpperAttack);
+					}
+				}
 				else if (CurKeyUD == EKeyUpDown::EKUD_Down) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 				else CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 			}
@@ -165,4 +174,6 @@ void UAttackActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty
 	DOREPLIFETIME(UAttackActorComponent, OverlapActors);
 	DOREPLIFETIME(UAttackActorComponent, InRangeActor);
 	DOREPLIFETIME(UAttackActorComponent, ComboCnt);
+	DOREPLIFETIME(UAttackActorComponent, CurKeyUD);
+	DOREPLIFETIME(UAttackActorComponent, TmpKeyUD);
 }

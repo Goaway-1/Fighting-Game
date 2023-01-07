@@ -13,7 +13,7 @@ FName UMontageManager::GetAttackMontageSection(int32 Section) {
 void UMontageManager::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx) {
 	if (MainAnimInstance) {
 		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
-		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_Hited) {
+		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_UpperAttack || Condition == EPlayerCondition::EPC_Hited || Condition == EPlayerCondition::EPC_UpperHited) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
 		else if (Condition == EPlayerCondition::EPC_Grap && idx == 1) {	//弊乏 付公府
@@ -26,7 +26,7 @@ void UMontageManager::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate,
 void UMontageManager::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongtage,float PlayRate, EPlayerCondition Condition, int idx) {
 	if (MainAnimInstance) {
 		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
-		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_Hited) {
+		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_UpperAttack || Condition == EPlayerCondition::EPC_Hited || Condition == EPlayerCondition::EPC_UpperHited) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
 		else if(Condition == EPlayerCondition::EPC_Grap && idx == 1) {	//弊乏 付公府
@@ -41,5 +41,22 @@ void UMontageManager::ServerPlayMontage_Implementation(UAnimMontage* Mongtage, f
 	MultiPlayNetworkMontage(Mongtage, PlayRate, Condition,idx);
 }
 bool UMontageManager::ServerPlayMontage_Validate(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx) {
+	return true;
+}
+void UMontageManager::StopNetworkMontage() {
+	if (MainAnimInstance) MainAnimInstance->Montage_Stop(0.f);
+
+	ServerStopMontage();
+}
+void UMontageManager::MultiStopNetworkMontage_Implementation() {
+	if (MainAnimInstance) MainAnimInstance->Montage_Stop(0.f);
+}
+bool UMontageManager::MultiStopNetworkMontage_Validate() {
+	return true;
+}
+void UMontageManager::ServerStopMontage_Implementation() {
+	MultiStopNetworkMontage();
+}
+bool UMontageManager::ServerStopMontage_Validate(){
 	return true;
 }

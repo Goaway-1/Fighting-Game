@@ -83,7 +83,6 @@ void ANCameraManager::RotateDefaultScene() {
 			DefaultSceneRoot->AddWorldRotation(FRotator(0.f, YawForce, 0.f), false, false);
 		}
 		else {
-			UE_LOG(LogTemp, Warning, TEXT("[NCameraManager] Set Attacl View_False"));
 			bIsAttackView = false;
 		}
 	}
@@ -173,7 +172,6 @@ bool ANCameraManager::ServerSetPlayer_Validate(AActor* Player) {
 }
 void ANCameraManager::SetAttackView() {
 	if (GetCameraType() == ECameraType::ECT_3D) {
-		UE_LOG(LogTemp, Warning, TEXT("[NCameraManager] Set Attack View_True"));
 		bIsAttackView = true;
 	}
 }

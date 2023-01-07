@@ -77,10 +77,10 @@ private:
 	UPROPERTY(VisibleAnyWhere)
 	bool bIsAttackCheck = false;	// In case of attack input during attack
 
-	UPROPERTY(VisibleAnyWhere)
+	UPROPERTY(Replicated, VisibleAnyWhere)
 	EKeyUpDown CurKeyUD = EKeyUpDown::EKUD_Default;			// Current UP Key Value
 
-	UPROPERTY(VisibleAnyWhere)
+	UPROPERTY(Replicated, VisibleAnyWhere)
 	EKeyUpDown TmpKeyUD = EKeyUpDown::EKUD_Default;			// Tmp UP Key Value
 
 	UPROPERTY(Replicated, VisibleAnyWhere)

@@ -2304,3 +2304,274 @@
     - 4M인데도 걸림.;
     - 그래서 다른 곳에 띄워두고, 카메라의 전환으로 처리할까 생각 중..
   - 추가적으로 클라이언트에서 실행되지 않던 문제를 해결해야한다.
+
+## **Day_22**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">애니메이션 클라이언트 오류</span> 
+  - 어제 클라이언트에서 실행되지 않던 문제는 서버문제로 값이 갱신되지 않았기 때문이다.
+  - 근데 분명 변수에 대해서 Replicated하고, DOREPLIFETIME로 설정해주었는데 왜 안되는지 의문이다.
+    - 그래서 모든 클라이언트에도 정보를 강제로 가질 수 있도록 "Client,Multi,Sever" 3가지 함수를 사용하여 다시 지정해주었다.
+    - 'Player의 PlayerCondition'과 'AttackActorComponent의 ComboCnt'에 적용해주었다.
+  - 이는 임시방편이기 때문에 추후에는 수정해야한다.
+    
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayer.cpp
+    void ANPlayer::SetPlayerCondition(EPlayerCondition NewCondition) {
+      PlayerCondition = NewCondition;
+
+      ServerSetPlayerCondition(NewCondition);
+    }
+    void ANPlayer::MultiSetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
+      PlayerCondition = NewCondition;
+    }
+    bool ANPlayer::MultiSetPlayerCondition_Validate(EPlayerCondition NewCondition) {
+      return true;
+    }
+    void ANPlayer::ServerSetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
+      MultiSetPlayerCondition(NewCondition);
+    }
+    bool ANPlayer::ServerSetPlayerCondition_Validate(EPlayerCondition NewCondition) {
+      return true;
+    }
+    ```
+    ```cpp
+    //AttackActorComponent.cpp
+    void UAttackActorComponent::SetComoboCnt(int16 cnt){
+      ComboCnt = cnt;
+      ServerSetComboCnt(cnt);
+    }
+    void UAttackActorComponent::MultiSetComoboCnt_Implementation(int16 cnt) {
+      ComboCnt = cnt;
+    }
+    bool UAttackActorComponent::MultiSetComoboCnt_Validate(int16 cnt) {
+      return true;
+    }
+    void UAttackActorComponent::ServerSetComboCnt_Implementation(int16 cnt) {
+      MultiSetComoboCnt(cnt);
+    }
+    bool UAttackActorComponent::ServerSetComboCnt_Validate(int16 cnt) {
+      return true;
+    }
+    ```
+    </details> 
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //NPlayer.h
+    protected:
+    	UFUNCTION(BlueprintCallable)
+      void SetPlayerCondition(EPlayerCondition NewCondition);		
+
+      UFUNCTION(NetMulticast, Reliable, WithValidation)
+      void MultiSetPlayerCondition(EPlayerCondition NewCondition);
+
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerSetPlayerCondition(EPlayerCondition NewCondition);
+    ```
+    ```cpp
+    //AttackActorComponent.h
+    protected:
+    	UFUNCTION()
+      void SetComoboCnt(int16 cnt);		
+
+      UFUNCTION(NetMulticast, Reliable, WithValidation)
+      void MultiSetComoboCnt(int16 cnt);
+
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerSetComboCnt(int16 cnt);
+    ```
+    </details> 
+
+- ## <span style = "color:yellow;">컷씬 위젯 수정</span> 
+  - <img src="Image/Play_ChacraCutScene_ver2.gif" height="300" title="Play_ChacraCutScene_ver2">
+  - 기존 위젯에서 영상이 끝나도 델리게이트가 발생하지 않는 문제가 있었는데, 카메라를 하나 더 만들어 두고, 카메라의 전환으로 처리하였다.
+    - 하지만 이 방식으로 진행해도 똑같은 문제가 발생하여, Timer를 통해 영상의 종료 로직을 실행하였다. (용량이 작은 영상은 잘 종료된다...)
+    - 생각해보니 기존 방식으로 진행하면 될듯해서 다 지우고, 기존방식에 Timer를 적용하여 사용해야겠다. 이는 단순 기록용이다.
+  - StaticMesh의 Material을 설정하고, 영상을 플레이하는 로직이다..
+  
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //SceneManager.cpp
+    ASceneManager::ASceneManager(){
+      PrimaryActorTick.bCanEverTick = true;
+
+      SceneCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("SceneCamera"));
+      MainMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MainMesh"));
+
+      RootComponent = SceneCamera;
+      MainMesh->SetRelativeLocation(FVector(450.f,0.f,0.f));
+      MainMesh->SetRelativeRotation(FRotator(90.f,0.f,90.f));
+      MainMesh->SetRelativeScale3D(FVector(9.f,5.f,1.f));
+      MainMesh->SetupAttachment(RootComponent);
+    }
+    void ASceneManager::BeginPlay(){
+      Super::BeginPlay();
+
+      MediaPlayer->OnEndReached.AddDynamic(this, &ASceneManager::StopCutScene);
+    }
+    void ASceneManager::PlayCutScene(UMediaSource* Source) {
+      UE_LOG(LogTemp, Warning, TEXT("Sceneing.."));
+      MediaPlayer->OpenSource(Source);
+      MediaPlayer->Play();
+    }
+    void ASceneManager::StopCutScene() {
+      UE_LOG(LogTemp, Warning, TEXT("End Scene"));
+      MediaPlayer->Rewind();
+      MediaPlayer->Pause();
+    }
+    ```
+    </details>     
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //SceneManager.h
+    protected:
+      UPROPERTY(EditAnywhere, category="CutScene")
+      class UCameraComponent* SceneCamera;
+
+    public:
+      UFUNCTION()
+      FORCEINLINE UCameraComponent* GetSceneCamera() {return SceneCamera; }
+
+      UPROPERTY(EditAnywhere, category = "CutScene")
+      class UMediaPlayer* MediaPlayer;
+
+      UPROPERTY(EditAnywhere, category = "CutScene")
+      class UStaticMeshComponent* MainMesh;
+
+      UFUNCTION()
+      void PlayCutScene(class UMediaSource* Source);
+
+      UFUNCTION()
+      void StopCutScene();
+    ```
+    </details>   
+
+- ## <span style = "color:yellow;">컷씬 위젯 찐최종</span> 
+  - <img src="Image/Play_ChacraCutScene_END.gif" height="300" title="Play_ChacraCutScene_END">
+  - struct에 영상의 길이를 삽입하고, 그 길이 이후 영상을 종료 & 애니메이션을 실행한다.
+    
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //UCutSceneWidget.cpp
+    void UCutSceneWidget::PlayCutScene(UMediaSource* Source, float MediaLength) {
+      if(Source) {
+        ...
+        /** Set End Scene Timer... */
+        GetWorld()->GetTimerManager().ClearTimer(StopMediaHandle);
+        GetWorld()->GetTimerManager().SetTimer(StopMediaHandle, this, &UCutSceneWidget::StopCutScene, MediaLength, false);
+      }
+      else UE_LOG(LogTemp, Error, TEXT("[PlayCutScene] There is no MediaSource"))
+    }
+    ```
+    </details>     
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //UCutSceneWidget.h
+    public:
+      UFUNCTION()
+      void PlayCutScene(UMediaSource* Source, float MediaLength);
+    ```
+    </details>   
+
+> **<h3>Realization</h3>**
+  - 추가적으로 클라이언트에서 서버를 공격할때, 충돌처리가 되지않는 경우를 확인
+    - 프로젝트의 FPS를 60으로 고정하여 해결.
+
+
+## **Day_22**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">Skill 피격 중 플레이어 이동 제한</span> 
+  - <img src="Image/Play_ChacraCutScene_Finsh.gif" height="300" title="Play_ChacraCutScene_Finsh">
+  - Skill이 피격처리 할때, 그 뒤 애니메이션을 실행하지 않도록하여 SkillEnd()메서드의 호출을 방지한다.
+    - 이 SkillEnd()메서드에는 Player의 Codition을 Hited 애니메이션이 실행되어 결과적으로 Conition이 Idle로 바뀌기 때문에 CutScene이 실행되는 동안 플레이어들이 움직일 수 있다.
+  - MontageManager클래스에서 몽타주를 멈추는 클래스를 제작하여 이를 Hited()에서 호출하여 사용...
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //MontageManager.cpp
+    void UMontageManager::StopNetworkMontage() {
+      if (MainAnimInstance) MainAnimInstance->Montage_Stop(0.f);
+      ServerStopMontage();
+    }
+    void UMontageManager::MultiStopNetworkMontage_Implementation() {
+      if (MainAnimInstance) MainAnimInstance->Montage_Stop(0.f);
+    }
+    bool UMontageManager::MultiStopNetworkMontage_Validate() {
+      return true;
+    }
+    void UMontageManager::ServerStopMontage_Implementation() {
+      MultiStopNetworkMontage();
+    }
+    bool UMontageManager::ServerStopMontage_Validate(){
+      return true;
+    }
+    ```
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::ClientPlayScene_Implementation(bool bisAttacker, int idx) {
+      GetMontageManager()->StopNetworkMontage();                        // Stop Cur Montage...
+      SetPlayerCondition(EPlayerCondition::EPC_CantMove);
+      ...
+    }
+    ```
+    </details>  
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //MontageManager.h
+    public:
+      UFUNCTION()
+      void StopNetworkMontage();
+
+    private:
+      UFUNCTION(NetMulticast, Reliable, WithValidation)
+      void MultiStopNetworkMontage();
+
+      UFUNCTION(Server, Reliable, WithValidation)
+      void ServerStopMontage();
+    ```
+    </details>  
+
+- ## <span style = "color:yellow;">잡다한 것</span> 
+  1. UP&DOWN 공격 구분 문제와 DOWN 콤보만 이루어지지 않는 문제 해결
+    - 기존 Player의 MoveFroward/Right의 "IsCanMove()"메서드에서 움직일 수 없으면, 값이 저장되지 않았기때문에 문제 발생.
+      - 움직임 여부와 관계없이 키의 입력이 항상 우선시 되도록 상단으로 이동..
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::MoveForward(float Value) {
+        if (Value > 0) SetKeyUpDown(EKeyUpDown::EKUD_Up);
+        else if (Value < 0) SetKeyUpDown(EKeyUpDown::EKUD_Down);
+        else SetKeyUpDown(EKeyUpDown::EKUD_Default);
+
+        if(!IsCanMove()) return;
+        ...
+      }
+      ``` 
+
+    - Down 콤보만 이루어지지 않는 이유는 UP 콤보만 조건을 넣어주었기 때문..
+
+      ```cpp
+      //AttackActorComponent.cpp
+      void UAttackActorComponent::Attack() {
+        ...
+        else {	
+        CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
+        if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker) &&
+          !CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker) && 
+          !CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker)) {	//공격중이 아닐때 (처음 공격)
+            ...
+          }
+        }
+      }
+      ```
+
+> **<h3>Realization</h3>**
+  - 점프 공격만 하면 끝이다!

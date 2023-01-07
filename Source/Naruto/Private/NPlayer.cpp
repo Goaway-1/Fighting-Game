@@ -146,24 +146,24 @@ void ANPlayer::SetAnotherPlayer() {
 	}
 }
 void ANPlayer::MoveForward(float Value) {
+	if (Value > 0) SetKeyUpDown(EKeyUpDown::EKUD_Up);
+	else if (Value < 0) SetKeyUpDown(EKeyUpDown::EKUD_Down);
+	else SetKeyUpDown(EKeyUpDown::EKUD_Default);
+
 	if(!IsCanMove()) return;
 
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
 	AddMovementInput(UKismetMathLibrary::GetForwardVector(Rot), Value);
-
-	if (Value > 0) SetKeyUpDown(EKeyUpDown::EKUD_Up);
-	else if (Value < 0) SetKeyUpDown(EKeyUpDown::EKUD_Down);
-	else SetKeyUpDown(EKeyUpDown::EKUD_Default);
 }
 void ANPlayer::MoveRight(float Value) {
+	if (Value > 0) SetKeyLeftRight(EKeyLeftRight::EKLR_Right);
+	else if (Value < 0) SetKeyLeftRight(EKeyLeftRight::EKLR_Left);
+	else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
+	
 	if (!IsCanMove()) return;
 
 	FRotator Rot = FRotator(0.f, GetControlRotation().Yaw, 0.f);
 	AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value);
-
-	if (Value > 0) SetKeyLeftRight(EKeyLeftRight::EKLR_Right);
-	else if (Value < 0) SetKeyLeftRight(EKeyLeftRight::EKLR_Left);
-	else SetKeyLeftRight(EKeyLeftRight::EKLR_Default);
 }
 bool ANPlayer::IsCanMove() {
 	if(IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
@@ -251,15 +251,26 @@ void ANPlayer::IsHited() {
 	else  {
 		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *AnotherPlayer->GetName(), *this->GetName());
 
-		UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
-		GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition(), AnotherPlayer->GetCurAttackComp()->GetComboCnt());
-		GetCurAttackComp()->RotateToActor();
+		/** 공중으로 날려! */
+		if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_UpperAttack)) {
+			// @TODO : 날라가기...
+			UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
+		
+			
+		}
+		else {
+			UE_LOG(LogTemp, Warning, TEXT("Just Vitcim!"));
+			UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+			GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition(), AnotherPlayer->GetCurAttackComp()->GetComboCnt());
+		}
 
-		/** Set Attack View */
+		/** Set Camera & Player Rotate */
+		GetCurAttackComp()->RotateToActor();
 		if (AnotherPlayer->GetCurAttackComp()->GetComboCnt() >= 2) TargetCamera->SetAttackView();
 	}
 }
 void ANPlayer::ClientPlayScene_Implementation(bool bisAttacker, int idx) {
+	GetMontageManager()->StopNetworkMontage();
 	SetPlayerCondition(EPlayerCondition::EPC_CantMove);
 	if (bisAttacker) {
 		GetMainController()->PlayCutScene(GetMontageManager()->GetActionMontage().MS_Skill[idx].MS_SkillMedia, GetMontageManager()->GetActionMontage().MS_Skill[idx].MT_AttackerSkillEnd, GetMontageManager()->GetActionMontage().MS_Skill[idx].MediaLength);
@@ -270,8 +281,7 @@ void ANPlayer::ClientPlayScene_Implementation(bool bisAttacker, int idx) {
 }
 void ANPlayer::SetPlayerCondition(EPlayerCondition NewCondition) {
 	PlayerCondition = NewCondition;
-	//로그 띄워서ㅓ 확인하고, 움직이지 못하도록 수자ㅓㅇ..
-	ServerSetPlayerCondition(NewCondition);
+	if(IsLocallyControlled()) ServerSetPlayerCondition(NewCondition);
 }
 void ANPlayer::MultiSetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
 	PlayerCondition = NewCondition;

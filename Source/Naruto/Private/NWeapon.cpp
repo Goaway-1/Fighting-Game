@@ -54,12 +54,12 @@ void ANWeapon::SetCollisionONOFF(bool isSet) {
 	if (HasAuthority()) {
 		if (!isSet) {
 			MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			UE_LOG(LogTemp, Warning, TEXT("Collision OFF"))
+			//UE_LOG(LogTemp, Warning, TEXT("Collision OFF"));
 		}
 		else {
 			MeshComp->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 			AttackController->ClearOverlapActors();
-			UE_LOG(LogTemp, Warning, TEXT("Collision ON"));
+			//UE_LOG(LogTemp, Warning, TEXT("Collision ON"));
 		}
 	}
 }

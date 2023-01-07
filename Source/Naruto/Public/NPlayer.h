@@ -10,12 +10,16 @@ UENUM(BlueprintType)
 enum class EPlayerCondition : uint8 {
 	EPC_Idle			UMETA(DisplayName = "Idle"),
 	EPC_Hited			UMETA(DisplayName = "Hited"),
+	EPC_AirHited		UMETA(DisplayName = "AirHited"),
+	EPC_UpperHited		UMETA(DisplayName = "UpperHited"),
 	EPC_Parry			UMETA(DisplayName = "Parry"),
 	EPC_Charge			UMETA(DisplayName = "Charge"),
 	EPC_Block			UMETA(DisplayName = "Block"),
 	EPC_Dash			UMETA(DisplayName = "Dash"),
 	EPC_Jump			UMETA(DisplayName = "Jump"),
 	EPC_Attack			UMETA(DisplayName = "Attack"),
+	EPC_UpperAttack		UMETA(DisplayName = "UpperAttack"),
+	EPC_AirAttack		UMETA(DisplayName = "AirAttack"),
 	EPC_Grap			UMETA(DisplayName = "Grap"),	//¿‚±‚
 	EPC_Skill1			UMETA(DisplayName = "Skill1"),
 	EPC_Skill2			UMETA(DisplayName = "Skill2"),
