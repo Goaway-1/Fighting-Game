@@ -117,4 +117,11 @@ public:
 	/** Skill Media */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<FChacraSkill> MS_Skill;
+
+	/** Jumped Attack & Victim */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_JumpAttack;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_JumpVictim;
 };

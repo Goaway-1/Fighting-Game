@@ -2574,4 +2574,135 @@
       ```
 
 > **<h3>Realization</h3>**
-  - 점프 공격만 하면 끝이다!
+  - 점프 공격 & 막기만 하면 끝이다!
+
+## **Day_23**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">점프 공격 시전</span> 
+  - <img src="Image/UpperAttack.gif" height="300" title="UpperAttack">
+  - <img src="Image/Set_UpperAnim.png" height="300" title="Set_UpperAnim">
+  - IsHited()메서드 호출 시 상대가 "UpperAttack"을 시전했다면 상태를 "UpperHited"로 전환하고, LaunchCharacter를 통해 후방으로 날라간다.
+  - 이는 몽타주를 실행하는 것이 아닌, AnimInstance에서 진행하였고, 구조는 그림과 같다.
+  - 또한 이때 상대방에게 대쉬하여 공중 공격을 진행할 수 있다.
+    - 추후 대쉬에 부딪치거나 공격을 맞게되는 경우 두 플레이어 모두 중력을 제거해야한다.
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::IsHited() {
+      ...
+    	else  {
+      /** 공중으로 날림 */
+      if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_UpperAttack)) {
+        UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
+        SetPlayerCondition(EPlayerCondition::EPC_UpperHited);
+
+        FVector ForceVec = (GetActorForwardVector() * -500.f) + FVector(0.f, 0.f, 2000.f);
+        LaunchCharacter(ForceVec, false, false);
+      }
+    }
+    void ANPlayer::AutoChacraDash(float DeltaTime) {
+      if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+        if (AP_Distance < ChacraDashStopDis) {
+          StopChacraDash();
+          GetMovementComponent()->StopMovementImmediately();
+          return;
+        }
+      }
+      ...
+    }
+    ```
+    </details>  
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //ANPlayer.h
+    UENUM(BlueprintType)
+    enum class EPlayerCondition : uint8 {
+      EPC_AirHited		UMETA(DisplayName = "AirHited"),
+      EPC_UpperHited		UMETA(DisplayName = "UpperHited"),
+      EPC_UpperAttack		UMETA(DisplayName = "UpperAttack"),
+	    EPC_AirAttack		UMETA(DisplayName = "AirAttack")
+      ...
+    }
+    ```
+    </details>  
+
+- ## <span style = "color:yellow;">점프 공격 중</span> 
+  - <img src="Image/.gif" height="300" title="">
+  - 차크라 대쉬나 공중에서 공격할때, 상대방이 피격당한다면 공중에서 멈춰 있어야한다. 이를 위해서 'EPC_AirAttack'와 'EPC_AirHited'상태에서는 공중에 머물도록 Gravity를 꺼주어 처리한다.
+  - 또한 차크라 대쉬를 시전하면, 공격과 관련된 변수를 초기화해준다. 
+    - AttackActorComponent의 ResetAll()메서드...
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //ANPlayer.cpp
+    void ANPlayer::Tick(float DeltaTime) {
+      ...
+      // Gravitiy ON&OFF
+      if (!bIsGravityHandling && (IsPlayerCondition(EPlayerCondition::EPC_AirAttack) || IsPlayerCondition(EPlayerCondition::EPC_AirHited))) {
+        SetGravity(0.f);
+
+        bIsGravityHandling = true;
+        FTimerDelegate TimerDel;
+        TimerDel.BindUFunction(this, FName("SetGravity"), 1.f);         // Timer에 매개변수 전달..
+        GetWorld()->GetTimerManager().ClearTimer(GravityHandle);
+        GetWorld()->GetTimerManager().SetTimer(GravityHandle, TimerDel, ResetGravityTime, false);
+      }
+    }
+    void ANPlayer::AutoChacraDash(float DeltaTime) {
+      if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+        if (AP_Distance < ChacraDashStopDis) {
+          StopChacraDash();
+          GetMovementComponent()->StopMovementImmediately();
+          AnotherPlayer->GetMovementComponent()->StopMovementImmediately();
+          
+          // 대쉬 맞았을때, 상태 변경
+          SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
+          AnotherPlayer->SetPlayerCondition(EPlayerCondition::EPC_AirHited);
+          return;
+        }
+      }
+    }
+    void ANPlayer::SetGravity(float val) {
+      GetCharacterMovement()->GravityScale = val;
+      SetPlayerCondition(EPlayerCondition::EPC_Idle);
+    }
+    ```
+    ```cpp
+    //UAttackActorComponent.cpp
+    void UAttackActorComponent::ResetAll() {
+      SetComoboCnt(0);
+      bAttacking = false;
+      bIsAttackCheck = false;
+    }
+    ```
+    </details>  
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //ANPlayer.h
+    protected:
+      UPROPERTY()
+      FTimerHandle GravityHandle;		          // Set Default Gravity
+
+      UPROPERTY()
+      bool bIsGravityHandling = false;        // Current Gravity is Working..?
+
+      const float ResetGravityTime = 0.5f;    // Reset Time..
+
+      UFUNCTION()
+      void SetGravity(float val = 0);         // Gravity ON&OFF
+    ```
+    ```cpp
+    //UAttackActorComponent.h
+    public:
+      UFUNCTION()
+      void ResetAll();                        // Reset variables associated with an Attack
+    ```
+    </details>  
+
+> **<h3>Realization</h3>**
+  - 투척도 만들어야 한다...

@@ -109,6 +109,17 @@ void ANPlayer::Tick(float DeltaTime) {
 
 	/** Active Chacra Dash */
 	AutoChacraDash(DeltaTime);
+
+	// Test : ON&OFF Gravitiy
+	if (!bIsGravityHandling && (IsPlayerCondition(EPlayerCondition::EPC_AirAttack) || IsPlayerCondition(EPlayerCondition::EPC_AirHited))) {
+		SetGravity(0.f);
+
+		bIsGravityHandling = true;
+		FTimerDelegate TimerDel;
+		TimerDel.BindUFunction(this, FName("SetGravity"), 1.f);
+		GetWorld()->GetTimerManager().ClearTimer(GravityHandle);
+		GetWorld()->GetTimerManager().SetTimer(GravityHandle, TimerDel, ResetGravityTime, false);
+	}
 }
 void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -248,15 +259,25 @@ void ANPlayer::IsHited() {
 
 		AnotherPlayer->GetCurAttackComp()->bGrapHited = true;
 	}
+	//else if(공중인 경우....)
 	else  {
 		UE_LOG(LogTemp, Warning, TEXT("%s attack %s"), *AnotherPlayer->GetName(), *this->GetName());
 
 		/** 공중으로 날려! */
 		if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_UpperAttack)) {
-			// @TODO : 날라가기...
 			UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
-		
+			SetPlayerCondition(EPlayerCondition::EPC_UpperHited);
+
+			// Launch
+			FVector ForceVec = (GetActorForwardVector() * -500.f) + FVector(0.f, 0.f, 2000.f);
+			LaunchCharacter(ForceVec, false, false);
+
+			// ANim
+			UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictim;
+			GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition(), AnotherPlayer->GetCurAttackComp()->GetComboCnt());
 			
+			// 테스트..
+			bIsGravityHandling = false;
 		}
 		else {
 			UE_LOG(LogTemp, Warning, TEXT("Just Vitcim!"));
@@ -308,6 +329,7 @@ void ANPlayer::ChacraDash() {
 
 		SetPlayerCondition(EPlayerCondition::EPC_Dash);
 		CurChacraComp->ResetChacraCnt();
+		CurAttackComp->ResetAll();
 
 		// Animation
 		GetMontageManager()->PlayNetworkMontage(GetMontageManager()->GetActionMontage().MT_ChacraDash, 0.f, GetPlayerCondition());
@@ -327,6 +349,12 @@ void ANPlayer::AutoChacraDash(float DeltaTime) {
 	if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
 		if (AP_Distance < ChacraDashStopDis) {
 			StopChacraDash();
+			GetMovementComponent()->StopMovementImmediately();
+			AnotherPlayer->GetMovementComponent()->StopMovementImmediately();
+			
+			// 테스트중.. :  상태 변경하여서
+			SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
+			AnotherPlayer->SetPlayerCondition(EPlayerCondition::EPC_AirHited);
 			return;
 		}
 
@@ -385,6 +413,10 @@ void ANPlayer::RecoverSideStepCnt() {
 		GetWorld()->GetTimerManager().ClearTimer(SideStepHandle);
 		GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
 	}
+}
+void ANPlayer::SetGravity(float val) {
+	GetCharacterMovement()->GravityScale = val;
+	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 }
 void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

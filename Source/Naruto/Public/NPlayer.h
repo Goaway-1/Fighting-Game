@@ -69,7 +69,7 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerSetPlayerCondition(EPlayerCondition NewCondition);
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	FORCEINLINE bool IsPlayerCondition(EPlayerCondition Condition) { return (PlayerCondition == Condition); }
 
 	/* Check Player Can Input..? */
@@ -238,7 +238,24 @@ public:
 	FORCEINLINE void ReleaseBlock() { if(PlayerCondition == EPlayerCondition::EPC_Block) PlayerCondition = EPlayerCondition::EPC_Idle; }
 #pragma endregion
 
-public:	
+#pragma region CUTSCENE
+public:
 	UFUNCTION(Client, Reliable)
-	void ClientPlayScene(bool bisAttacker, int idx = 0);					// Play Scene IN LOCAL
+	void ClientPlayScene(bool bisAttacker, int idx = 0);					// Play Scene IN Client
+#pragma endregion
+
+#pragma region AIRATTACK
+protected:
+	UPROPERTY()
+	FTimerHandle GravityHandle;		          // Set Default Gravity
+
+	UPROPERTY()
+	bool bIsGravityHandling = false;        // Current Gravity is Working..?
+
+	const float ResetGravityTime = 0.5f;    // Reset Time..
+
+	UFUNCTION()
+	void SetGravity(float val = 0);         // Gravity ON&OFF
+#pragma endregion
+
 };

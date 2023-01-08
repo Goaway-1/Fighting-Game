@@ -52,9 +52,12 @@ void UAttackActorComponent::Attack() {
 		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 
 		if (isFalling){	
-			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Attack); 
+			/** 공중 공격 */
+			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_AirAttack); 
 
-			EndAttack(); // 임시 (삭제)
+			ComboCnt = (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack)) ? 1 : ComboCnt + 1;
+			SetComoboCnt(ComboCnt);
+			CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 		}
 		else if (CurOwner->IsPlayerCondition(EPlayerCondition::EPC_Block)) {
 			UE_LOG(LogTemp, Warning, TEXT("Grap Attack"));
@@ -153,7 +156,6 @@ bool UAttackActorComponent::ServerRotateToActor_Validate(FRotator Rot) {
 }
 void UAttackActorComponent::SetComoboCnt(int16 cnt){
 	ComboCnt = cnt;
-
 	ServerSetComboCnt(cnt);
 }
 void UAttackActorComponent::MultiSetComoboCnt_Implementation(int16 cnt) {
@@ -167,6 +169,11 @@ void UAttackActorComponent::ServerSetComboCnt_Implementation(int16 cnt) {
 }
 bool UAttackActorComponent::ServerSetComboCnt_Validate(int16 cnt) {
 	return true;
+}
+void UAttackActorComponent::ResetAll() {
+	SetComoboCnt(0);
+	bAttacking = false;
+	bIsAttackCheck = false;
 }
 void UAttackActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

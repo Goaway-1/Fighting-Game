@@ -118,4 +118,8 @@ public:
 	void ServerRotateToActor(FRotator Rot);
 
 #pragma endregion
+
+public:
+	UFUNCTION()
+	void ResetAll();
 };
