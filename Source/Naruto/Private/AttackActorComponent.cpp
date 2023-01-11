@@ -2,6 +2,7 @@
 #include "ChacraActorComponent.h"
 #include "NPlayerState.h"
 #include "NPlayer.h"
+#include "NinjaStar.h"
 #include "NPlayerController.h"
 #include "MontageManager.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -41,23 +42,34 @@ void UAttackActorComponent::DefaultAttack_KeyDown(EKeyUpDown KeyUD) {
 	else bIsAttackCheck = true;
 }
 void UAttackActorComponent::Attack() {
+	if(bAirAttackEnd) return;
+
 	bAttacking = true;
 
 	/** Rotate to another Actor.. (Network & MutiCast) 	*/
 	RotateToActor();
 
-	/** Play Animation Montage */
+	/** 상태에 따른 액션.. */
 	if(CurOwner->GetMontageManager()){
 		UChacraActorComponent* ChacraCom = CurOwner->GetCurChacraComp();
 		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 
-		if (isFalling){	
-			/** 공중 공격 */
-			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_AirAttack); 
+		if(!isFalling) bAirAttackEnd = false;
 
-			ComboCnt = (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack)) ? 1 : ComboCnt + 1;
-			SetComoboCnt(ComboCnt);
+		if (isFalling && !bAirAttackEnd){/** 공중 공격 */
+			/** Reset & Play Montage */
+			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
+			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack)) {
+	
+				// test
+				SetComoboCnt(1);
+				ClearOverlapActors();
+			}
 			CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+
+			/** Disable Gravity */
+			CurOwner->SetGravityHandling(false);		
+			//CurOwner->SetGravity(1.f);
 		}
 		else if (CurOwner->IsPlayerCondition(EPlayerCondition::EPC_Block)) {
 			UE_LOG(LogTemp, Warning, TEXT("Grap Attack"));
@@ -91,7 +103,6 @@ void UAttackActorComponent::Attack() {
 				if (CurKeyUD == EKeyUpDown::EKUD_Up) {
 					CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 					if (ComboCnt == 5) {
-						// @TODO : 올려치기...
 						UE_LOG(LogTemp, Warning, TEXT("Upper Attack!"));
 						CurOwner->SetPlayerCondition(EPlayerCondition::EPC_UpperAttack);
 					}
@@ -106,17 +117,30 @@ void UAttackActorComponent::EndAttack() {
 	CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Idle); 
 	bAttacking = false;
 	CurKeyUD = EKeyUpDown::EKUD_Default;
-	ComboCnt = 1;
-	SetComoboCnt(ComboCnt);
+	SetComoboCnt(1);
+	ClearOverlapActors();
 }
 void UAttackActorComponent::AttackInputCheck() {
-	if (bIsAttackCheck) {
-		ComboCnt++;
-		SetComoboCnt(ComboCnt);
+	bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
+	if (isFalling) {
+		if (OverlapActors.Num() <= 0 || ComboCnt == 5) {		/** Last Attack & Not Hit then fall Down.. */
+			UE_LOG(LogTemp,Warning, TEXT("%d"), OverlapActors.Num());
+			bAirAttackEnd = true;
+			CurOwner->SetGravity(1.f);
+		}
+		else if (bIsAttackCheck) {								/** Continue Fly Attack.. */
+			SetComoboCnt(ComboCnt + 1);
+			bIsAttackCheck = false;
+			Attack();
+		}
+	}
+	else if (bIsAttackCheck) {
+		SetComoboCnt(ComboCnt + 1);
 		if (CurOwner->GetMontageManager()->GetActionMontage().splitIdx == ComboCnt) CurKeyUD = TmpKeyUD;
 		bIsAttackCheck = false;
 		Attack();
 	}
+	ClearOverlapActors();
 }
 void UAttackActorComponent::GrapHitedCheck() {
 	if (bGrapHited) {
@@ -131,7 +155,7 @@ void UAttackActorComponent::GrapHitedCheck() {
 void UAttackActorComponent::RotateToActor() {
 	/** Rotate (Fixed Roll & Pitch) */
 
-	if (CurOwner && CurOwner->GetAnotherPlayer()) {
+	if (CurOwner && CurOwner->IsAnotherPlayer()) {
 		FRotator RotateVal = UKismetMathLibrary::FindLookAtRotation(CurOwner->GetActorLocation(), CurOwner->GetAnotherLocation());
 		RotateVal.Roll = CurOwner->GetActorRotation().Roll;
 		RotateVal.Pitch = CurOwner->GetActorRotation().Pitch;
@@ -155,8 +179,9 @@ bool UAttackActorComponent::ServerRotateToActor_Validate(FRotator Rot) {
 	return true;
 }
 void UAttackActorComponent::SetComoboCnt(int16 cnt){
+	if(GetOwner()->GetLocalRole() != ROLE_Authority) ServerSetComboCnt(cnt);
+	
 	ComboCnt = cnt;
-	ServerSetComboCnt(cnt);
 }
 void UAttackActorComponent::MultiSetComoboCnt_Implementation(int16 cnt) {
 	ComboCnt = cnt;
@@ -165,15 +190,46 @@ bool UAttackActorComponent::MultiSetComoboCnt_Validate(int16 cnt) {
 	return true;
 }
 void UAttackActorComponent::ServerSetComboCnt_Implementation(int16 cnt) {
-	MultiSetComoboCnt(cnt);
+	//MultiSetComoboCnt(cnt);
+	SetComoboCnt(cnt);
 }
 bool UAttackActorComponent::ServerSetComboCnt_Validate(int16 cnt) {
 	return true;
 }
 void UAttackActorComponent::ResetAll() {
-	SetComoboCnt(0);
+	SetComoboCnt(1);
 	bAttacking = false;
 	bIsAttackCheck = false;
+}
+void UAttackActorComponent::ThrowNinjaStar(bool bIsChacra) {
+	if (GetOwner()->GetLocalRole() != ROLE_Authority) ServerThrowNinjaStar(bIsChacra);
+	else if (!NinjaStar && NinjaStarClass) {
+		RotateToActor();
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = GetOwner();
+		SpawnParams.Instigator = GetOwner()->GetInstigator();
+
+		/** Set INIT (Loc & Rot) */
+		FVector SpawnVec = CurOwner->GetActorLocation() + (CurOwner->GetActorForwardVector() * 100.f);
+		FRotator Rot = UKismetMathLibrary::FindLookAtRotation(SpawnVec, CurOwner->GetAnotherLocation());
+		NinjaStar = GetWorld()->SpawnActor<ANinjaStar>(NinjaStarClass, SpawnVec, Rot, SpawnParams);
+		NinjaStar->InitSetting(CurOwner->GetAnotherPlayer(), bIsChacra);
+
+		/** Set Timer */
+		GetWorld()->GetTimerManager().ClearTimer(NinjaStarHandle);
+		GetWorld()->GetTimerManager().SetTimer(NinjaStarHandle, this, &UAttackActorComponent::ResetNinjaStar, 2.f, false);
+	}
+}
+void UAttackActorComponent::ServerThrowNinjaStar_Implementation(bool bIsChacra) {
+	ThrowNinjaStar(bIsChacra);
+}
+bool UAttackActorComponent::ServerThrowNinjaStar_Validate(bool bIsChacra) {
+	return true;
+}
+void UAttackActorComponent::ResetNinjaStar() {
+	UE_LOG(LogTemp, Warning, TEXT("NinjaStar is Reset"));
+	NinjaStar = nullptr;
 }
 void UAttackActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

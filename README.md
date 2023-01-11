@@ -2630,7 +2630,7 @@
     </details>  
 
 - ## <span style = "color:yellow;">점프 공격 중</span> 
-  - <img src="Image/.gif" height="300" title="">
+  - <img src="Image/ChacraDash_Gravity.gif" height="300" title="ChacraDash_Gravity">
   - 차크라 대쉬나 공중에서 공격할때, 상대방이 피격당한다면 공중에서 멈춰 있어야한다. 이를 위해서 'EPC_AirAttack'와 'EPC_AirHited'상태에서는 공중에 머물도록 Gravity를 꺼주어 처리한다.
   - 또한 차크라 대쉬를 시전하면, 공격과 관련된 변수를 초기화해준다. 
     - AttackActorComponent의 ResetAll()메서드...
@@ -2706,3 +2706,424 @@
 
 > **<h3>Realization</h3>**
   - 투척도 만들어야 한다...
+
+## **Day_24**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">점프 공격 후 연타</span> 
+  - <img src="Image/UpperAndFlyAttack.gif" height="300" title="UpperAndFlyAttack">
+  - 공중에서 공격을 성공하여 피격 대상이 있다면, 공중에 계속 떠 있을 수 있도록 Gravity를 조정하는 타이머 사용.
+  - 마지막 공격을 하거나 맞는다면, Gravity를 복구해 아래로 떨어진다.
+
+    <details><summary>Cpp File</summary>
+
+    ```cpp
+    //AttackActorComponent.cpp
+    void UAttackActorComponent::Attack() {
+      ...
+      if(CurOwner->GetMontageManager()){
+        ...
+        if(!isFalling) bAirAttackEnd = false;
+
+        if (isFalling && !bAirAttackEnd){           /** 공중 공격 */
+          /** Reset & Play Montage */
+          CurOwner->SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
+          if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack)) EndAttack();
+          CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+
+          /** Disable Gravity */
+          CurOwner->SetGravityHandling(false);
+        }
+      }
+    }
+    void UAttackActorComponent::AttackInputCheck() {
+      bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
+      if (isFalling) {
+        if (OverlapActors.Num() <= 0 || ComboCnt == 5) {		/** Last Attack & Not Hit then fall Down.. */
+          bAirAttackEnd = true;
+          CurOwner->SetGravity(1.f);
+        }
+        else if (bIsAttackCheck) {								/** Continue Fly Attack.. */
+          SetComoboCnt(ComboCnt + 1);
+          bIsAttackCheck = false;
+          Attack();
+        }
+      }
+    }
+    ```
+    ```cpp
+    //NPlayer.cpp
+    void ANPlayer::Tick(float DeltaTime) {
+      ...
+      /** ON& OFF Gravitiy */
+      if (!bIsGravityHandling && (IsPlayerCondition(EPlayerCondition::EPC_AirAttack) || IsPlayerCondition(EPlayerCondition::EPC_AirHited))) {
+        SetGravity(0.f);
+        GetMovementComponent()->StopMovementImmediately();
+
+        bIsGravityHandling = true;
+        FTimerDelegate TimerDel;
+        TimerDel.BindUFunction(this, FName("SetGravity"), 1.f);
+        GetWorld()->GetTimerManager().ClearTimer(GravityHandle);
+        GetWorld()->GetTimerManager().SetTimer(GravityHandle, TimerDel, ResetGravityTime, false);
+      }
+    }
+    void ANPlayer::IsHited() {
+      ...
+      else  {
+        if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_AirAttack)) {					    /** Air Attack */
+          UE_LOG(LogTemp, Warning, TEXT("Air Vitcim!"));
+          SetPlayerCondition(EPlayerCondition::EPC_AirHited);
+
+          UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictim;
+          GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
+
+          // Set ON Gravity if Last Attack Hited
+          if(AnotherPlayer->GetCurAttackComp()->GetComboCnt() == 5) SetGravity(1.f);
+          else bIsGravityHandling = false;
+        }
+        else if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_UpperAttack)) {				/** Upper Attack */
+          UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
+          SetPlayerCondition(EPlayerCondition::EPC_UpperHited);
+
+          // Launch Another Characer
+          FVector ForceVec = (GetActorForwardVector() * -500.f) + FVector(0.f, 0.f, 2000.f);
+          LaunchCharacter(ForceVec, false, false);
+          
+          bIsGravityHandling = false;
+        }
+      }
+    }
+    void ANPlayer::AutoChacraDash(float DeltaTime) {
+      if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+        if (AP_Distance < ChacraDashStopDis) {
+          StopChacraDash();
+          
+          // Set Player Condition if Crash 'in Air'
+          if(GetMovementComponent()->IsFalling()){           
+            SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
+            AnotherPlayer->SetPlayerCondition(EPlayerCondition::EPC_AirHited);
+
+            // Set Location (Force)
+            FVector TmpVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100);
+            SetActorLocation(TmpVec);
+          }
+          return;
+        }
+        ....
+      }
+    }
+    ```
+    </details>  
+    <details><summary>Header File</summary>
+
+    ```cpp
+    //AttackActorComponent.h
+    protected:
+      UPROPERTY()
+      bool bAirAttackEnd = false;       // End Air Attack
+    ```
+    ```cpp
+    //NPlayer.h
+    public:
+      UFUNCTION()
+      FORCEINLINE void SetGravityHandling(bool val) { bIsGravityHandling = val;}		// Call ON&OFF Controller at AttackActorComponent
+    ```
+    </details>  
+
+> **<h3>Realization</h3>**
+  - 구조가 복잡해지니 점점 복잡해진다...
+
+## **Day_25**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">표창 생성 및 로직</span> 
+  - <img src="Image/Ninja_Star.gif" height="300" title="Ninja_Star">
+  - 이 게임에서 표창은 주로 상대방이 차크라를 회복하거나 거리를 벌리는등 견제할때 사용한다.
+  - __로직 :__
+    - 사용자의 전면에 생성되며, 지속적으로 갱신되는 목표물의 위치로 이동한다.
+    - 이때 목표물의 위치로 이동하는 방식은 2가지로 구성된다.
+      - 차크라 X : 직선으로만 이동하며 회전하지 않는다.
+      - 차크라 O : 이동과 회전을 동시에 진행하지만, 회전에는 한계가 있기 때문에 목표물에 도달하지 못할 수 있다.
+    - 부딪치거나, 일정 시간이 지나면 표창은 사라지며, 이때 다시 시전할 수 있다.
+  - __구현 :__
+    - Player에서 'A'키가 입력되면 AttackActorComponent클래스에서 표창을 생성하여 상대방에서 날라간다.
+    - AttackActorComponent클래스에서 표창을 Server에서 생성, 타켓의 정보등을 전달하며, NinjaStar클래스에서 사전 받은 정보를 바탕으로 이동한다.
+      - 키가 입력될때, 매개변수로 차크라의 사용여부를 전달한다.
+    - 목표물로의 회전은 최대/최소 회전 각도를 지정해두고, 매 틱마다 회전하도록한다. (MoveStar()메서드 확인)
+      - 즉 이렇게 되면, 플레이어를 아슬아슬하게 추격하며 회피할 수 있다.
+    - 추가적으로 싱글톤패턴을 사용할까 싶었지만, 그리 많이 생성되지 않기 때문에 사용하지 않았다.    
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::ThrowStar() {
+        bool bIsChacraThrow = false;
+        if (GetCurChacraComp()->GetChacraCnt() >= 1) {
+          GetCurChacraComp()->ResetChacraCnt();
+          bIsChacraThrow = true;
+        }
+        CurAttackComp->ThrowNinjaStar(bIsChacraThrow);
+      }
+      ```
+      ```cpp
+      //AttackActorComponent.cpp
+      void UAttackActorComponent::ThrowNinjaStar(bool bIsChacra) {
+        if (GetOwner()->GetLocalRole() != ROLE_Authority) ServerThrowNinjaStar(bIsChacra);
+        else if (!NinjaStar && NinjaStarClass) {
+          RotateToActor();
+
+          FActorSpawnParameters SpawnParams;
+          SpawnParams.Owner = GetOwner();
+          SpawnParams.Instigator = GetOwner()->GetInstigator();
+
+          /** Set INIT (Loc & Rot) */
+          FVector SpawnVec = CurOwner->GetActorLocation() + (CurOwner->GetActorForwardVector() * 100.f);
+          FRotator Rot = UKismetMathLibrary::FindLookAtRotation(SpawnVec, CurOwner->GetAnotherLocation());
+          NinjaStar = GetWorld()->SpawnActor<ANinjaStar>(NinjaStarClass, SpawnVec, Rot, SpawnParams);
+          NinjaStar->InitSetting(CurOwner->GetAnotherPlayer(), bIsChacra);
+
+          /** Set Timer */
+          GetWorld()->GetTimerManager().ClearTimer(NinjaStarHandle);
+          GetWorld()->GetTimerManager().SetTimer(NinjaStarHandle, this, &UAttackActorComponent::ResetNinjaStar, 2.f, false);
+        }
+      }
+      void UAttackActorComponent::ServerThrowNinjaStar_Implementation(bool bIsChacra) {
+        ThrowNinjaStar(bIsChacra);
+      }
+      bool UAttackActorComponent::ServerThrowNinjaStar_Validate(bool bIsChacra) {
+        return true;
+      }
+      void UAttackActorComponent::ResetNinjaStar() {
+        UE_LOG(LogTemp, Warning, TEXT("NinjaStar is Reset"));
+        NinjaStar = nullptr;
+      }
+      ```
+      ```cpp
+      //NinjaStar.cpp
+      ANinjaStar::ANinjaStar(){
+        PrimaryActorTick.bCanEverTick = true;
+
+        BoxCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxCollision"));
+        BoxCollision->SetIsReplicated(true);
+        SetRootComponent(BoxCollision);
+
+        StaticMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("StaticMesh"));
+        StaticMesh->SetupAttachment(RootComponent);
+
+        bReplicates = true;
+        SetReplicateMovement(true);
+      }
+      void ANinjaStar::BeginPlay(){
+        Super::BeginPlay();
+
+        Setting();
+      }
+      void ANinjaStar::Tick(float DeltaTime){
+        Super::Tick(DeltaTime);
+
+        MoveStar();
+        StaticMesh->AddLocalRotation(FRotator(0.f,5.f,0.f));
+      }
+      void ANinjaStar::Setting() {
+        BoxCollision->OnComponentBeginOverlap.AddDynamic(this, &ANinjaStar::OnNinjaStarOverlapBegin);
+
+        GetWorld()->GetTimerManager().ClearTimer(StopStarHandle);
+        GetWorld()->GetTimerManager().SetTimer(StopStarHandle, this, &ANinjaStar::StopStar, LifeTime, false);
+      }
+      void ANinjaStar::InitSetting(AActor *player, bool bIsChacra) {
+        Target = player;
+        bIsChacraThrow = bIsChacra;
+
+        /** Set Speed! */
+        if(bIsChacra) {Speed = MaxSpeed; UE_LOG(LogTemp, Warning, TEXT("PowerFull NinjaStar!!"));}
+      }
+      void ANinjaStar::MoveStar() {
+        if (Target) {
+          SetActorLocation(GetActorTransform().GetLocation() + (GetActorForwardVector() * Speed));
+
+          /** Set Rotation if ChacraThrow.. */
+          if (bIsChacraThrow) {			
+            FRotator Rot = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), Target->GetActorLocation());
+
+            /* Get gap between two players..
+            * move Yaw&Pitch if not a straight line */
+            int YawVal = GetActorRotation().Yaw - Rot.Yaw, PitchVal = GetActorRotation().Pitch - Rot.Pitch;
+            YawVal = (abs(YawVal) > 1) ? ((YawVal < 0) ? 1 : -1) : 0;
+            PitchVal = (abs(PitchVal) > 1) ? ((PitchVal < 0) ? 1 : -1) : 0;
+
+            AddActorLocalRotation(FRotator(PitchVal, YawVal,0.f));
+          }
+        }
+      }
+      void ANinjaStar::StopStar() {
+        UE_LOG(LogTemp, Warning, TEXT("NinjaStar is Destory..."));
+        Destroy();
+      }
+      void ANinjaStar::OnNinjaStarOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+        if (OtherActor != Owner) {
+          UE_LOG(LogTemp, Warning, TEXT("NinjaStar is Hited %s"), *OtherActor->GetName());
+
+          ANPlayer* victim = Cast<ANPlayer>(OtherActor);
+          victim->IsHited();
+          StopStar();
+        }
+      }
+      ```
+      </details>  
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.h
+      public:
+        UFUNCTION()
+        void ThrowStar();
+      ```
+      ```cpp
+      //AttackActorComponent.h
+      protected:
+        UPROPERTY(EditDefaultsOnly, Category = "NinjaStar", Meta = (AllowPrivateAccess = true))
+        TSubclassOf<AActor> NinjaStarClass;
+
+        UPROPERTY(VisibleAnywhere, Category = "NinjaStar")
+        class ANinjaStar* NinjaStar = nullptr;
+
+        UPROPERTY()
+        FTimerHandle NinjaStarHandle;
+
+        UFUNCTION()
+        void ResetNinjaStar();									// Reset NinjaStar
+      public:
+        UFUNCTION()
+        void ThrowNinjaStar(bool bIsChacra = false);
+
+        UFUNCTION(Server, Reliable, WithValidation)
+        void ServerThrowNinjaStar(bool bIsChacra = false);
+      ```
+      ```cpp
+      //NinjaStar.h
+      protected:
+        UPROPERTY(EditAnywhere, Category = "Info", Meta = (AllowPrivateAccess = true))
+        UStaticMeshComponent* StaticMesh;
+
+        UPROPERTY(EditAnywhere, Category = "Info", Meta = (AllowPrivateAccess = true))
+        class UBoxComponent* BoxCollision;
+
+        UPROPERTY(VisibleAnywhere, Category="Info")
+        AActor* Target;		
+        
+        UPROPERTY()
+        FTimerHandle StopStarHandle;
+
+        UPROPERTY()
+        bool bIsChacraThrow = false;
+
+        float Speed = 20.f;						// Move Speed
+        float MaxSpeed = 30.f;					// Move Speed (Chacra)
+        float LifeTime = 3.f;					// Life Time
+          
+      private:
+        UFUNCTION()
+        void MoveStar();
+
+        UFUNCTION()
+        void StopStar();
+
+        void Setting();							// Set timer & Collision
+
+        /** If Overlap other Actor */
+        UFUNCTION()
+        void OnNinjaStarOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+      public:
+        UFUNCTION()
+        void InitSetting(AActor* player, bool bIsChacra);		// Set Target & Chacra
+      ```
+      </details>  
+  
+- ## <span style = "color:yellow;">막기</span> 
+  - <img src="Image/Block_Attack.gif" height="300" title="Block_Attack">
+  - <img src="Image/Block_Anim.png" height="300" title="Block_Anim">
+  - Player의 Codition에 따라 막는다고 판정하며, 두 플레이어의 상대적인 위치 (내적)을 판단하여 피격 여부를 결정한다.
+    - 위 영상처럼 방향에 따라 피격 여부가 결정되며, 아래 경우에 따라 또한 피격이 결정된다.
+    - 피격되는 경우 : ChacraSkill, GrapAttack, BackAttack
+    - 피격되지 않는 경우 : Normal Attack
+  - 방어하는 과정까지는 애니메이션 인스턴스를 사용하였고, 피격 시 몽타주를 실행하였다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::IsHited() {
+        /** if blocking */
+        if (IsPlayerCondition(EPlayerCondition::EPC_Block) && AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Attack)) {
+          // Can Block -60 ~ 60 Degree
+          float Inner = GetDotProductTo(AnotherPlayer);
+
+          if (Inner > BlockDegree) {
+            GetMontageManager()->PlayNetworkMontage(AnotherPlayer->GetMontageManager()->GetActionMontage().MT_BlockHited, 1.f, GetPlayerCondition());
+            UE_LOG(LogTemp, Warning, TEXT("Block Successed!!"));
+            return;
+          }
+          else UE_LOG(LogTemp, Warning, TEXT("Block failed!"));
+          ...
+      } 
+      void ANPlayer::PressBlock() { 
+        if(!GetMovementComponent()->IsFalling()) SetPlayerCondition(EPlayerCondition::EPC_Block);
+      }
+      void ANPlayer::ReleaseBlock() { 
+        if (IsPlayerCondition(EPlayerCondition::EPC_Block)) SetPlayerCondition(EPlayerCondition::EPC_Idle);
+      }
+      ```
+      </details>  
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      private:
+        const float BlockDegree = 0.5f;   // can block '-60 ~ 60 degree'
+      public:
+        UFUNCTION()
+        void PressBlock();
+
+        UFUNCTION()
+        void ReleaseBlock();
+      ```
+      </details>  
+
+- ## <span style = "color:yellow;">잡다한 것</span> 
+  1. Upper Attack 이후 돌진 시 공중에 멈추지 않는 문제
+    - SetPlayerCondition()이나 SetGravity()메서드를 사용할때, Multi를 사용한 문제로 실행에 오류..
+    - Multicast는 모두 지워주고, Client와 Server만 연계하여 사용.
+      - <img src="Image/Server_Error.png" height="50" title="Server_Error">
+      - 문제는 위와 같이 할당되지 않았다는 문제가 발생한다는점이다.... 해결은 생각중이다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::SetPlayerCondition(EPlayerCondition NewCondition) {
+        if (!HasAuthority()) ServerSetPlayerCondition(NewCondition);
+        else PlayerCondition = NewCondition;
+      }
+      void ANPlayer::ServerSetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
+        SetPlayerCondition(NewCondition);
+      }
+      void ANPlayer::SetGravity(float val) {
+        if(!HasAuthority()) SetServerGravity(val);
+        
+        if (GetCharacterMovement()->GravityScale != val) {
+          GetCharacterMovement()->GravityScale = val;
+          SetPlayerCondition(EPlayerCondition::EPC_Idle);
+        }
+      }
+      void ANPlayer::SetServerGravity_Implementation(float val) {
+        SetGravity(val);
+      }
+      ```
+      </details>  
+
+> **<h3>Realization</h3>**  
+  - <img src="Image/Server_Error.png" height="50" title="Server_Error">
+    - 문제는 위와 같이 할당되지 않았다는 문제가 발생한다는점이다.... 해결은 생각중이다.
+  - 현재 점프 공격 관련해서 많은 문제가 발생하고 있는데, 해결에 어려움이 존재함.(점프 공격 후 연타)
+    - 이걸로 스트레스를 너무 많이 받으니 뒤로 미루고, 쉬운 것 부터 처리하여 자존감 회복할 예정...
+  - 표창 관련 애니메이션은 존재하지 않기 때문에 생략
+  - 추가적으로 데미지 처리를 해야한다.

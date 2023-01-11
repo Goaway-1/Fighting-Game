@@ -60,11 +60,9 @@ public:
 	FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
 
 	// @TODO : 오류 방지를 위한 임시방편이기에 수정필요
-	UFUNCTION(BlueprintCallable)
+	//UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable,Client, Reliable)
 	void SetPlayerCondition(EPlayerCondition NewCondition);		
-
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MultiSetPlayerCondition(EPlayerCondition NewCondition);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerSetPlayerCondition(EPlayerCondition NewCondition);
@@ -121,7 +119,7 @@ public:
 #pragma region CHACRADASH
 protected:
 	double ChacraDashForce = 5000.f;
-	double ChacraDashStopDis = 100.f;
+	double ChacraDashStopDis = 150.f;
 
 	UPROPERTY()
 	FTimerHandle StopChacraDashHandle;
@@ -213,7 +211,8 @@ protected:
 	void SetAnotherPlayer();				// Get Another Playe
 public:
 	FORCEINLINE FVector GetAnotherLocation() { return AnotherPlayer->GetActorLocation(); }
-	FORCEINLINE bool GetAnotherPlayer() { return (AnotherPlayer) ? true: false; }
+	FORCEINLINE bool IsAnotherPlayer() { return (AnotherPlayer) ? true: false; }
+	FORCEINLINE ANPlayer* GetAnotherPlayer() { return AnotherPlayer; }
 #pragma endregion
 
 #pragma region MONTAGE
@@ -233,9 +232,14 @@ public:
 #pragma endregion
 
 #pragma region BLOCK
+private:
+	const float BlockDegree = 0.5f;   // can block '-60 ~ 60 degree'
 public:
-	FORCEINLINE void PressBlock() { PlayerCondition = EPlayerCondition::EPC_Block; }
-	FORCEINLINE void ReleaseBlock() { if(PlayerCondition == EPlayerCondition::EPC_Block) PlayerCondition = EPlayerCondition::EPC_Idle; }
+	UFUNCTION()
+	void PressBlock();
+
+	UFUNCTION()
+	void ReleaseBlock();
 #pragma endregion
 
 #pragma region CUTSCENE
@@ -249,13 +253,34 @@ protected:
 	UPROPERTY()
 	FTimerHandle GravityHandle;		          // Set Default Gravity
 
-	UPROPERTY()
+	UPROPERTY(Replicated, VisibleAnywhere, Category="AIR")
 	bool bIsGravityHandling = false;        // Current Gravity is Working..?
 
 	const float ResetGravityTime = 0.5f;    // Reset Time..
+public:
+	//UFUNCTION()
+	UFUNCTION(Client, Reliable)
+	void SetGravity(float val = 0);         // Gravity ON&OFF
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void SetServerGravity(float val = 0);         // Server Gravity ON&OFF
 
 	UFUNCTION()
-	void SetGravity(float val = 0);         // Gravity ON&OFF
+	FORCEINLINE void SetGravityHandling(bool val) { bIsGravityHandling = val;}		//AttackActorComponent에서 호출할껄야..
 #pragma endregion
 
+#pragma region NINJA_STAR
+public:
+	UFUNCTION()
+	void ThrowStar();
+#pragma endregion
+
+#pragma region TESTMODE
+public:
+	UPROPERTY(EditAnywhere, Category="TestMode")
+	bool bTestMode = false;
+
+	UPROPERTY(EditAnywhere, Category = "TestMode")
+	EPlayerCondition TestModePlayerCondition;
+#pragma endregion
 };

@@ -34,9 +34,6 @@ public:
 	FORCEINLINE bool IsMontagePlaying(UAnimMontage* Montage) { return (MainAnimInstance->Montage_IsPlaying(Montage)) ? true:false ; }
 
 	UFUNCTION()
-	FORCEINLINE void StopMontage() { MainAnimInstance->StopAllMontages(0.f); }
-
-	UFUNCTION()
 	void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx = 0);
 
 	UFUNCTION()

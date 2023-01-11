@@ -26,6 +26,9 @@ protected:
 
 public:
 	FORCEINLINE void SetInit(ANPlayer* player) { CurOwner = player;  }
+
+	UFUNCTION()
+	void ResetAll();			// Reset Setting like Attack..!
 	
 #pragma region ATTACK
 public:
@@ -119,7 +122,30 @@ public:
 
 #pragma endregion
 
+#pragma region AIRATTACK
+protected:
+	UPROPERTY(VisibleAnywhere, category = "Attack")
+	bool bAirAttackEnd = false;			// End Air Attack
+#pragma endregion
+
+#pragma region NINJA_STAR
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "NinjaStar", Meta = (AllowPrivateAccess = true))
+	TSubclassOf<AActor> NinjaStarClass;
+
+	UPROPERTY(VisibleAnywhere, Category = "NinjaStar")
+	class ANinjaStar* NinjaStar = nullptr;
+
+	UPROPERTY()
+	FTimerHandle NinjaStarHandle;
+
+	UFUNCTION()
+	void ResetNinjaStar();									// Reset NinjaStar
 public:
 	UFUNCTION()
-	void ResetAll();
+	void ThrowNinjaStar(bool bIsChacra = false);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerThrowNinjaStar(bool bIsChacra = false);
+#pragma endregion
 };

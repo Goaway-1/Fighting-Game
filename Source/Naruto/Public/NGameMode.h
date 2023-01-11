@@ -21,4 +21,6 @@ public:
 	virtual void StartPlay() override;
 
 	virtual void Tick(float DeltaSeconds) override;
+
+	virtual void PostLogin(APlayerController* NewPlayer) override;
 };

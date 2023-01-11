@@ -124,4 +124,8 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_JumpVictim;
+
+	/** Block Hited */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_BlockHited;
 };

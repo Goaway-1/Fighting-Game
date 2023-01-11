@@ -26,7 +26,7 @@ void UMontageManager::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate,
 void UMontageManager::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongtage,float PlayRate, EPlayerCondition Condition, int idx) {
 	if (MainAnimInstance) {
 		MainAnimInstance->Montage_Play(Mongtage, PlayRate);
-		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_UpperAttack || Condition == EPlayerCondition::EPC_Hited || Condition == EPlayerCondition::EPC_UpperHited) {
+		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_UpperAttack || Condition == EPlayerCondition::EPC_AirAttack || Condition == EPlayerCondition::EPC_Hited || Condition == EPlayerCondition::EPC_UpperHited) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
 		else if(Condition == EPlayerCondition::EPC_Grap && idx == 1) {	//±×·¦ ¸¶¹«¸®
