@@ -45,7 +45,8 @@ void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
 		AttackController->SetOverlapActors(OtherActor);
 
-		// 피격 몽타주 실행
+		// Hited Handle 
+		// @TODO : set hited Val
 		ANPlayer* victim = Cast<ANPlayer>(OtherActor);
 		victim->IsHited();
 	}

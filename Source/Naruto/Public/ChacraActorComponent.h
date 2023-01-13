@@ -27,12 +27,28 @@ protected:
 	UPROPERTY()
 	FTimerHandle ResetChacraHandle;
 
+private:
+	const float MaxChacra = 100.f;
+	float ChacraRatio = 0.f;
+	const float ChargingVal = 0.7f;				// Increase Val
+
+	UPROPERTY(Replicated, VisibleAnywhere, Category = "Chacra")
+	float CurrentChacra = 40.f;
+
 public:
-	UFUNCTION()
-	void UseChacra();
+	FORCEINLINE void SetChacraRatio() { ChacraRatio = CurrentChacra / MaxChacra; }		
 
 	UFUNCTION()
-	void ResetChacraCnt();
+	FORCEINLINE float GetChacraRatio() { return ChacraRatio; }							
+
+	UFUNCTION()
+	void ChargingChacra();
+
+	UFUNCTION()
+	void UseChacra();				// Decressed Chacra
+
+	UFUNCTION()
+	void ResetChacraCnt(bool bIsUsed = true);
 
 	UFUNCTION()
 	FORCEINLINE int8 GetChacraCnt() {return ChacraCnt;}

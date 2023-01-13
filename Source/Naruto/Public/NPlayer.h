@@ -23,7 +23,8 @@ enum class EPlayerCondition : uint8 {
 	EPC_Grap			UMETA(DisplayName = "Grap"),	//잡기
 	EPC_Skill1			UMETA(DisplayName = "Skill1"),
 	EPC_Skill2			UMETA(DisplayName = "Skill2"),
-	EPC_CantMove		UMETA(DisplayName = "CantMove")	//CutScene 실행중에는 움직일 수 없음
+	EPC_CantMove		UMETA(DisplayName = "CantMove"),	//CutScene 실행중에는 움직일 수 없음
+	EPC_Dead			UMETA(DisplayName = "Dead")	
 };
 
 UCLASS()
@@ -48,6 +49,8 @@ protected:
 
 	class ANPlayerController* MainPlayerController;
 
+	class ANPlayerState* MainPlayerState;
+
 	ANCameraManager* TargetCamera;
 
 public:
@@ -56,7 +59,7 @@ public:
 
 #pragma region PLAYERCONDITION
 public:
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
 
 	// @TODO : 오류 방지를 위한 임시방편이기에 수정필요
@@ -193,7 +196,14 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Chacra")
 	class UChacraActorComponent* CurChacraComp;
 
-	void Chacra();
+	float ChacraPressedTime;							// The time when Chacra pressed
+	const float ChacraChargingSec = 0.5f;				// The time it take to Charging
+
+	bool bisCharing = false;							// Check Charging 
+
+	void StartChacra();
+	void ChargingChacra();
+	void EndChacra();
 public:
 	UFUNCTION()
 	FORCEINLINE UChacraActorComponent* GetCurChacraComp() { return CurChacraComp; }
@@ -274,6 +284,18 @@ public:
 	UFUNCTION()
 	void ThrowStar();
 #pragma endregion
+
+#pragma region HEALTH
+protected:
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
+	class UHealthManager* HealthManager;
+
+public:
+	UFUNCTION()
+	FORCEINLINE UHealthManager* GetHealthManager() { return HealthManager; }
+
+#pragma endregion
+
 
 #pragma region TESTMODE
 public:

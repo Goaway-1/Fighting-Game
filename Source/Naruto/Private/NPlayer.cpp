@@ -7,6 +7,7 @@
 #include "NCameraManager.h"
 #include "NGameMode.h"
 #include "NWeapon.h"
+#include "HealthManager.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/PlayerState.h"
@@ -56,6 +57,7 @@ ANPlayer::ANPlayer() {
 	CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
 	CurChacraComp = CreateDefaultSubobject<UChacraActorComponent>(TEXT("ChacraComponent"));
 	MontageManager = CreateDefaultSubobject<UMontageManager>(TEXT("MontageManager"));
+	HealthManager = CreateDefaultSubobject<UHealthManager>(TEXT("HealthManager"));
 
 	/* Set Condition */
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
@@ -89,9 +91,15 @@ void ANPlayer::BeginPlay() {
 }
 void ANPlayer::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
+
+	if (!MainPlayerState) MainPlayerState = Cast<ANPlayerState>(GetPlayerState());
 }
 void ANPlayer::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
+
+	// @TODO : 지워야돼
+	GetHealthManager()->SetDecreaseHealth(0.3f);
+	if (MainPlayerState) MainPlayerState->SetHealth(GetHealthManager()->GetCurrentHealth());
 
 	// 지울거얌 : 강제로 상태 만들었음
 	if (bTestMode) {
@@ -102,12 +110,9 @@ void ANPlayer::Tick(float DeltaTime) {
 	/** Setting the rotation of the controller according to the rotation of the CameraManager */
 	if (CameraManager && HasAuthority()) {
 		FRotator NRot = FRotator(CameraManager->GetActorRotation().Pitch, CameraManager->GetActorRotation().Yaw, GetController()->GetControlRotation().Roll);
-		if (MainPlayerController) {
-			MainPlayerController->ClientSetRotation(NRot);
-		}
-		else {
-			MainPlayerController = Cast<ANPlayerController>(GetController());
-		}
+		
+		if (MainPlayerController) MainPlayerController->ClientSetRotation(NRot);
+		else MainPlayerController = Cast<ANPlayerController>(GetController());
 	}
 
 	/** Get Another Player */
@@ -145,7 +150,9 @@ void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) 
 	PlayerInputComponent->BindAction("Block", IE_Released,this, &ANPlayer::ReleaseBlock);
 
 	// Chacra
-	PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::Chacra);
+	PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::StartChacra);
+	PlayerInputComponent->BindAction("Chacra", IE_Repeat,this, &ANPlayer::ChargingChacra);
+	PlayerInputComponent->BindAction("Chacra", IE_Released,this, &ANPlayer::EndChacra);
 
 	// Ninja Star
 	PlayerInputComponent->BindAction("NinjaStar", IE_Pressed,this, &ANPlayer::ThrowStar);
@@ -188,7 +195,7 @@ void ANPlayer::MoveRight(float Value) {
 	AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value);
 }
 bool ANPlayer::IsCanMove() {
-	if(IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Block) || IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
+	if(IsPlayerCondition(EPlayerCondition::EPC_Dead) || IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Block) || IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
 	else return true;
 }
 void ANPlayer::Jump() {
@@ -242,12 +249,10 @@ void ANPlayer::SetWeapon() {
 	}
 }
 void ANPlayer::Attack() {
-	if (IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
+	if (IsPlayerCondition(EPlayerCondition::EPC_Dead) || IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
 
 	if(IsLocallyControlled()) CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
-
-// @TODO : 피해 처리..
 void ANPlayer::IsHited() {
 	/** if blocking */
 	if (IsPlayerCondition(EPlayerCondition::EPC_Block) && AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Attack)) {
@@ -261,6 +266,15 @@ void ANPlayer::IsHited() {
 		}
 		else UE_LOG(LogTemp, Warning, TEXT("Block failed!"));
 	}
+	
+	/** Decreased Health & UI */
+	if (GetHealthManager()->SetDecreaseHealth(10.f)) {
+		GetCurAttackComp()->RotateToActor();
+		UE_LOG(LogTemp, Warning, TEXT("Player is Died"));
+		SetPlayerCondition(EPlayerCondition::EPC_Dead);
+		return;
+	}
+	if (MainPlayerState) MainPlayerState->SetHealth(GetHealthManager()->GetCurrentHealth());
 
 	SetPlayerCondition(EPlayerCondition::EPC_Hited);
 	if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1) || AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill2)) {
@@ -347,9 +361,27 @@ void ANPlayer::ServerSetPlayerCondition_Implementation(EPlayerCondition NewCondi
 bool ANPlayer::ServerSetPlayerCondition_Validate(EPlayerCondition NewCondition) {
 	return true;
 }
-void ANPlayer::Chacra() {
-	if (!IsCanMove()) return;
+void ANPlayer::StartChacra() {
+	ChacraPressedTime = FDateTime::Now().GetTicks();
+	bisCharing = false;
+}
+void ANPlayer::ChargingChacra() {
+	if (!IsPlayerCondition(EPlayerCondition::EPC_Idle)) {
+		EndChacra();
+		return;
+	}
 
+	/** ChacraCharging in few Seconds */
+	int64 HoldingTime = ChacraPressedTime / 10000;
+	if (HoldingTime >= ChacraChargingSec) {
+		CurChacraComp->ChargingChacra();
+		bisCharing = true;
+	}
+}
+void ANPlayer::EndChacra() {
+	if(bisCharing) return;
+
+	/** Try to Set Chacra */
 	CurChacraComp->UseChacra();
 }
 void ANPlayer::ChacraDash() {

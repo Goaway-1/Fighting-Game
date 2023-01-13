@@ -3127,3 +3127,324 @@
     - 이걸로 스트레스를 너무 많이 받으니 뒤로 미루고, 쉬운 것 부터 처리하여 자존감 회복할 예정...
   - 표창 관련 애니메이션은 존재하지 않기 때문에 생략
   - 추가적으로 데미지 처리를 해야한다.
+
+## **Day_26**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">체력 관리</span> DeadAnim.png
+  - <img src="Image/DeadSystem&Anim.gif" height="300" title="DeadSystem&Anim">
+  - <img src="Image/DeadAnim.png" height="300" title="DeadAnim">
+  - 플레이어의 체력을 담당하여 관리하는 ActorComponent클래스인 "HealthManager"클래스를 생성
+  - SetDecreaseHealth()메서드를 호출하여 사용하며, Player클래스의 Hited()메서드에서 호출..
+  - 애니메이션은 Instance를 사용하여 위 그림과 같이 구현
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //HealthManager.cpp
+      #include "HealthManager.h"
+      #include "Net/UnrealNetwork.h"
+
+      UHealthManager::UHealthManager(){
+        PrimaryComponentTick.bCanEverTick = false;
+        SetIsReplicated(true);
+
+        CurrentHealth = MaxHealth;
+      }
+      bool UHealthManager::SetDecreaseHealth(float val) {
+        CurrentHealth -= val;
+        SetHealthRatio();
+        UE_LOG(LogTemp, Warning, TEXT("Hited %f damage -> %f"), val, CurrentHealth);
+
+        return (CurrentHealth <= 0) ? true : false;
+      }
+      void UHealthManager::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
+        Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+        DOREPLIFETIME(UHealthManager, CurrentHealth);
+      }
+      ```
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::IsHited() {
+        if (GetHealthManager()->SetDecreaseHealth(10.f)) {
+		      GetCurAttackComp()->RotateToActor();
+          UE_LOG(LogTemp,Warning, TEXT("Player is Died"));
+          SetPlayerCondition(EPlayerCondition::EPC_Dead);
+          return;
+        }
+        ...
+      }
+      ```
+      </details>  
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //HealthManager.h
+      private:
+        /** Health */
+        const float MaxHealth = 100.f;
+
+        UPROPERTY(Replicated, VisibleAnywhere, Category="Health")
+        float CurrentHealth = 100.f;
+
+        float HealthRatio = 0.f;
+
+      public:
+        /** Health */
+        FORCEINLINE void SetHealthRatio(){	HealthRatio = CurrentHealth / MaxHealth; }
+
+        UFUNCTION()
+        bool SetDecreaseHealth(float val);			// Decrease Health & Return true if Health is under than 0
+
+        UFUNCTION()
+        FORCEINLINE float GetHealthRatio() { return HealthRatio; }
+      ```
+      </details>  
+
+  
+- ## <span style = "color:yellow;">차크라 관리</span> 
+  - <img src="Image/ChacraCharging.gif" height="300" title="ChacraCharging">
+  - 기존 차크라는 버튼만 누르면 카운트를 증가 시켰는데, 변경하여 차크라를 회복하여야만 카운트가 증가 할 수있도록 수정하였다.
+  - __로직 :__
+    - 움직이지 않는 상태일때 차크라버튼을 누르고 있으면, 차크라를 회복한다. (한번 누르면 차크라를 시전한다.)
+      - 일정 양을 소지하고 있지 않으면, 차크라를 시전할 수 없다.
+    - 차크라를 시전하고, 스킬을 사용하면 차크라의 양이 소모되지만, 스킬을 사용하지 않으면 차크라는 소모되지 않는다.
+  - __구현 :__
+    - NPlayer클래스의 "SetupPlayerInputComponent"메서드에서 누르고 있으면 발동되는 'IE_Repeat'을 "ChargingChacra()"메서드와 연동하였다.
+      - 차크라버튼을 누르고 일정 시간내에 뗀다면, "ChargingChacra()"메서드가 호출되지 않고, 차크라를 시전한다.
+      - 누르고 있는다면, 차크라의 양을 모아 회복시킨다. (이때 손가락을 떼어도 차크라가 시전되지 않는다.)
+    - ChacraActorComponent클래스에서 주목할 점은 스킬 사용의 여부인데, 델리게이트를 사용하여 스킬을 시전하지 않았을때는 소모되지 않도록 하였다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
+        ...
+        PlayerInputComponent->BindAction("Chacra", IE_Pressed,this, &ANPlayer::StartChacra);
+        PlayerInputComponent->BindAction("Chacra", IE_Repeat,this, &ANPlayer::ChargingChacra);
+        PlayerInputComponent->BindAction("Chacra", IE_Released,this, &ANPlayer::EndChacra);
+      }
+      void ANPlayer::StartChacra() {
+        ChacraPressedTime = FDateTime::Now().GetTicks();
+        bisCharing = false;
+      }
+      void ANPlayer::ChargingChacra() {
+        if (!IsPlayerCondition(EPlayerCondition::EPC_Idle)) {
+          EndChacra();
+          return;
+        }
+
+        /** ChacraCharging in few Seconds */
+        int64 HoldingTime = ChacraPressedTime / 10000;
+        if (HoldingTime >= ChacraChargingSec) {
+          CurChacraComp->ChargingChacra();
+          bisCharing = true;
+        }
+      }
+      void ANPlayer::EndChacra() {
+        if(bisCharing) return;
+
+        /** Try to Set Chacra */
+        CurChacraComp->UseChacra();
+      }
+      ```
+      ```cpp
+      //ChacraActorComponent.cpp
+      void UChacraActorComponent::UseChacra() {
+        if ((ChacraCnt == 0 && CurrentChacra >= 30.f) || (ChacraCnt == 1 && CurrentChacra >= 60.f)) {
+          ChacraCnt++;
+
+          UE_LOG(LogTemp, Warning, TEXT("Chacra : %d"), ChacraCnt);
+
+          FTimerDelegate ResetChacra;
+          ResetChacra.BindUFunction(this, FName("ResetChacraCnt"), false);
+          GetWorld()->GetTimerManager().ClearTimer(ResetChacraHandle);
+          GetWorld()->GetTimerManager().SetTimer(ResetChacraHandle, ResetChacra, 3.f, false);
+        }
+      }
+      void UChacraActorComponent::ResetChacraCnt(bool bIsUsed) {
+        UE_LOG(LogTemp, Warning, TEXT("[Chacra]Reset Cnt"));
+
+        /** Chacra consumption if used the skill */
+        if (bIsUsed && ChacraCnt > 0) {CurrentChacra -= (ChacraCnt * 30.f); UE_LOG(LogTemp, Warning, TEXT("[Chacra]Used Chacra"));}
+        ChacraCnt = 0;
+        GetWorld()->GetTimerManager().ClearTimer(ResetChacraHandle);
+      }
+      void UChacraActorComponent::ChargingChacra() {
+        if (CurrentChacra < MaxChacra) {
+          UE_LOG(LogTemp, Warning, TEXT("[Chacra]Charging"));
+          CurrentChacra += ChargingVal;			
+        }
+      }
+      ```
+      </details>   
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.h
+      protected:
+        float ChacraPressedTime;							      // The time when Chacra pressed
+        const float ChacraChargingSec = 0.5f;				// The time it take to Charging
+
+        bool bisCharing = false;							// Check Charging 
+
+        void StartChacra();
+        void ChargingChacra();
+        void EndChacra();
+      ```
+      ```cpp
+      //ChacraActorComponent.h
+      private:
+        const float MaxChacra = 100.f;
+        float ChacraRatio = 0.f;
+        const float ChargingVal = 0.7f;				// Increase Val
+
+        UPROPERTY(Replicated, VisibleAnywhere, Category = "Chacra")
+        float CurrentChacra = 40.f;
+
+      public:
+        UFUNCTION()
+        void ChargingChacra();
+
+        UFUNCTION()
+        void UseChacra();				// Decressed Chacra
+
+        UFUNCTION()
+        void ResetChacraCnt(bool bIsUsed = true);
+      ```
+      </details>  
+
+- ## <span style = "color:yellow;">체력&차크라 위젯 초기</span> 
+  - <img src="Image/.gif" height="300" title="">
+  - 체력&차크라의 양을 위젯을 위해 <ins>"PlayerStateWidget클래스"</ins>와 이를 연동하기 위해 새로운 <ins>"PlayerState클래스"</ins> 생성
+  - GameMode클래스에서 PlayerState를 초기 설정해주고, PlayerState에 새로운 값을 갱신하면, UI가 갱신되도록 델리게이트를 사용하였다.
+  - 연결이 복잡하여 이해하는데 어려움이 있을 수 있으나 아래 로직을 따른다고 생각하면 쉽다.  
+  - __로직 :__ Player 피격 -> IsHited()메서드에서 체력 감소 -> PlayerState클래스의 SetHealth()메서드를 통해 데이터 갱신 -> 갱신될때 델리게이트를 통해 PlayerStateWidget클래스의 UI연동
+  - __문제점 :__ 클라이언트에서 처리가 안되는 문제 때문에 진행이 어려움
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      // NGameMode.cpp
+      // PlayerState 초기 설정
+      ANGameMode::ANGameMode() {
+        PlayerStateClass = ANPlayerState::StaticClass();
+      }
+      void ANGameMode::PostLogin(APlayerController* NewPlayer) {
+        Super::PostLogin(NewPlayer);
+
+        ANPlayerState* MainlayerState = Cast<ANPlayerState>(NewPlayer->PlayerState);
+        MainlayerState->InitPlayerData();
+      }
+      ```
+      ```cpp
+      //NPlayerState.cpp
+      ANPlayerState::ANPlayerState() {
+        Health = 5.f;
+      }
+      float ANPlayerState::GetHealth() const{
+        return Health;
+      }
+      void ANPlayerState::InitPlayerData(){
+        Health = 100.f;
+      }
+      void ANPlayerState::SetHealth(float val) {
+        Health = val;
+        OnPlayerHealthChanged.Broadcast();      // UI 갱신
+      }
+      ```
+      ```cpp
+      //NPlayerController.cpp
+      void ANPlayerController::BeginPlay() {
+        if (IsLocalController() && MainWidgetClass && CutSceneWidgetClass) {
+          if (MainWidget && CutSceneWidget) {
+            ...
+            // Set Health Widget
+            HealthWidget = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_OwnerHealth");
+          }
+        }
+        
+        // 체력 초기 설정과 UI갱신
+        ANPlayerState* ABPlayerState = Cast<ANPlayerState>(PlayerState);
+        if (ABPlayerState) {
+          HealthWidget->BindPlayerState(ABPlayerState);
+          ABPlayerState->OnPlayerHealthChanged.Broadcast();
+        }
+      }
+      ```
+      ```cpp
+      //PlayerStateWidget.cpp
+      void UPlayerStateWidget::BindPlayerState(class ANPlayerState* PlayerState) {
+        if (PlayerState) {
+          CurrentPlayerState = PlayerState;
+          PlayerState->OnPlayerHealthChanged.AddUObject(this, &UPlayerStateWidget::UpdatePlayerState);    // UI 갱신 함수을 연동
+        }
+      }
+      void UPlayerStateWidget::UpdatePlayerState(){
+        if (CurrentPlayerState) {
+          FNumberFormattingOptions Opts;
+          Opts.SetMaximumFractionalDigits(0);
+
+          HealthBar->SetPercent(CurrentPlayerState->GetHealth() / 100.f);
+          CurrentHealthLabel->SetText(FText::AsNumber(CurrentPlayerState->GetHealth(), &Opts));
+        }
+      };
+      ```
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::PossessedBy(AController* NewController) {
+        if (!MainPlayerState) MainPlayerState = Cast<ANPlayerState>(GetPlayerState());
+      }
+      void ANPlayer::IsHited() {
+        ...
+        if (MainPlayerState) MainPlayerState->SetHealth(GetHealthManager()->GetCurrentHealth());
+      }
+      ```
+      </details>   
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayerState.h
+      public:
+        float GetHealth() const;
+        void InitPlayerData();                                    // 초기화
+        void SetHealth(float val);
+
+        FOnPlayerHealthChangeDelegate OnPlayerHealthChanged;      //데이터가 변동되면, UI 또한 연동되로고 델리게이트 설정
+      protected:
+        UPROPERTY(VisibleAnywhere,Transient)
+        float Health;
+      ```
+      ```cpp
+      //NPlayerController.cpp
+      public:
+	      UPROPERTY(VisibleAnywhere, Category = "Widget")
+        class UPlayerStateWidget* HealthWidget;
+      ```
+      ```cpp
+      //PlayerStateWidget.h
+      public:
+        void BindPlayerState(class ANPlayerState* PlayerState);
+
+      protected:
+        UPROPERTY(meta = (BindWidget))
+        class UProgressBar* HealthBar;
+
+        UPROPERTY(meta = (BindWidget))
+        class UTextBlock* CurrentHealthLabel;
+
+        UFUNCTION()
+        void UpdatePlayerState();           // Update Value..
+
+      private:
+        class ANPlayerState* CurrentPlayerState;
+      ```
+      </details>
+
+> **<h3>Realization</h3>**  
+  - 데미지의 값을 저장하는 구조체 필요
+    - 구현 후 데미지를 입히도록 수정해야함 (현재는 10으로 고정되어 있음)
+    - 방패로 막았을 경우도 데미지 처리..
+    - 모드에서 플레이어가 죽은 경우를 추가적으로 처리하여 2회전을 할 수 있도록 진행해야함...
+  - 체력&차크라 위젯 : 클라이언트에서 처리가 안되는 문제 때문에 진행이 어려움

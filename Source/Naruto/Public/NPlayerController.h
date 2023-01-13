@@ -19,17 +19,20 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
+	UPROPERTY()
+	class ANPlayer* OwnerPlayer;
+
 	UPROPERTY(VisibleAnywhere, Category = "Widget")
-	class UUserWidget* PlayerWidget;
+	class UUserWidget* MainWidget;
 
 	UPROPERTY(VisibleAnywhere, Category = "Widget")
 	class UCutSceneWidget* CutSceneWidget;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
-	TSubclassOf<class UUserWidget> MainSource;
+	TSubclassOf<class UUserWidget> MainWidgetClass;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
-	TSubclassOf<class UUserWidget> CutSceneSource;
+	TSubclassOf<class UUserWidget> CutSceneWidgetClass;
 	
 protected:
 	UPROPERTY()
@@ -41,4 +44,21 @@ public:
 	
 	UFUNCTION()
 	void EndCutScene();																		// Play  End Montage each Player's
+
+#pragma region HEALTH&CHACRA
+public:
+	UPROPERTY(VisibleAnywhere, Category = "Widget")
+	class UPlayerStateWidget* HealthWidget;
+
+	UFUNCTION(Client, Reliable)
+	void SetHealthWidget();
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void SetMultiHealthWidget();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void SetSeverHealthWidget();
+
+#pragma endregion
+
 };
