@@ -3130,7 +3130,7 @@
 
 ## **Day_26**
 > **<h3>Today Dev Story</h3>**
-- ## <span style = "color:yellow;">체력 관리</span> DeadAnim.png
+- ## <span style = "color:yellow;">체력 관리</span>
   - <img src="Image/DeadSystem&Anim.gif" height="300" title="DeadSystem&Anim">
   - <img src="Image/DeadAnim.png" height="300" title="DeadAnim">
   - 플레이어의 체력을 담당하여 관리하는 ActorComponent클래스인 "HealthManager"클래스를 생성
@@ -3316,7 +3316,6 @@
       </details>  
 
 - ## <span style = "color:yellow;">체력&차크라 위젯 초기</span> 
-  - <img src="Image/.gif" height="300" title="">
   - 체력&차크라의 양을 위젯을 위해 <ins>"PlayerStateWidget클래스"</ins>와 이를 연동하기 위해 새로운 <ins>"PlayerState클래스"</ins> 생성
   - GameMode클래스에서 PlayerState를 초기 설정해주고, PlayerState에 새로운 값을 갱신하면, UI가 갱신되도록 델리게이트를 사용하였다.
   - 연결이 복잡하여 이해하는데 어려움이 있을 수 있으나 아래 로직을 따른다고 생각하면 쉽다.  
@@ -3448,3 +3447,80 @@
     - 방패로 막았을 경우도 데미지 처리..
     - 모드에서 플레이어가 죽은 경우를 추가적으로 처리하여 2회전을 할 수 있도록 진행해야함...
   - 체력&차크라 위젯 : 클라이언트에서 처리가 안되는 문제 때문에 진행이 어려움
+
+## **Day_27**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">체력 위젯 수정</span>
+  - <img src="Image/HealthWidget_Client.gif" height="300" title="HealthWidget_Client">
+  - 기존 클라이언트에서 적용되지 않던 문제 해결했고, 2가지의 문제점이 있었다.
+    1. 기존 Controller의 BeginPlay()에서 PlayerState를 호출할 수 없었다. 분명 PlayerState는 서버와 클라이언트 모두 존재하며 Replicated된다고 들었는데 말이다.
+      - 그래서 현재는 Player가 Hited()될때, PlayerState를 호출하여 바인딩하도록 하였다. 
+      - 추후에는 GameMode에서 게임에 참여할때, 바꾸도록 해야할듯하다.
+    2. Widget은 서버에 존재하지 않고, 각 클라이언트에만 존재한다.
+      - 그렇기 때문에 Null참조가 떠서 클라이언트에서만 접근 가능하도록 수정하였다.
+  - 체력의 소모, 위젯의 설정은 모두 클라이언트에서만 진행하도록 수정하였다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //ANPlayerController.cpp
+      void ANPlayerController::BeginPlay() {
+        if (IsLocalPlayerController() && MainWidgetClass && CutSceneWidgetClass) {
+          ...
+          // Set Health
+          HealthWidget = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_OwnerHealth");
+        }
+      }
+      void ANPlayerController::SetHealthWidget() {
+        ANPlayerState* ABPlayerState = Cast<ANPlayerState>(PlayerState);     
+        if (ABPlayerState) {
+          HealthWidget->BindPlayerState(ABPlayerState);
+          ABPlayerState->OnPlayerHealthChanged.Broadcast();
+        }
+      }
+      ```
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::SetWidget_Implementation(){
+        if (!MainPlayerState) MainPlayerState = Cast<ANPlayerState>(GetPlayerState());
+        if (MainPlayerController) MainPlayerController->SetHealthWidget();
+      }
+      void ANPlayer::IsHited() {
+	      // @TODO: GameMode로 이전
+        if(!bIsWidgetSetting){
+          SetWidget();
+          bIsWidgetSetting = true;
+        }
+
+        /** Decreased Health & UI */
+        DecreasedHealth();
+      }
+      void ANPlayer::DecreasedHealth_Implementation() {
+        GetHealthManager()->SetDecreaseHealth(10.f);
+        GetCurAttackComp()->RotateToActor();
+        if (MainPlayerState) MainPlayerState->SetHealth(GetHealthManager()->GetCurrentHealth());
+      }
+      ```
+      </details>      
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //ANPlayerController.h
+      public:
+        UFUNCTION()
+        void SetHealthWidget();       //Player의 Hited()메서드에서 호출하여 바인딩.... (추후 수정)
+      ```
+      ```cpp
+      protected:
+      	UFUNCTION(client, Reliable)
+        void DecreasedHealth();         //체력의 관리는 클라이언트에서..
+      
+      	bool bIsWidgetSetting = false;  //위젯 설정 완료 여부
+
+        UFUNCTION(client, Reliable)
+        void SetWidget();
+      ```
+      </details>
+
+> **<h3>Realization</h3>**  
+  - 위젯 마음에 안듦 수정 필요!
