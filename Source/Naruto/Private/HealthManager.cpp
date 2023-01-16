@@ -15,11 +15,12 @@ void UHealthManager::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 }
-bool UHealthManager::SetDecreaseHealth(float val) {
+void UHealthManager::SetDecreaseHealth(float val) {
 	CurrentHealth -= val;
 	SetHealthRatio();
 	//UE_LOG(LogTemp, Warning, TEXT("Hited %f damage -> %f"), val, CurrentHealth);
-
+}
+bool UHealthManager::GetIsDead() {
 	return (CurrentHealth <= 0) ? true : false;
 }
 void UHealthManager::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {

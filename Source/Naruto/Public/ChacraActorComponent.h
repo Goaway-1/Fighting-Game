@@ -27,27 +27,32 @@ protected:
 	UPROPERTY()
 	FTimerHandle ResetChacraHandle;
 
+	UPROPERTY()
+	TWeakObjectPtr<class ANPlayer> OwnPlayer;
+
 private:
 	const float MaxChacra = 100.f;
 	float ChacraRatio = 0.f;
 	const float ChargingVal = 0.7f;				// Increase Val
 
 	UPROPERTY(Replicated, VisibleAnywhere, Category = "Chacra")
-	float CurrentChacra = 40.f;
+	float CurrentChacra = 100.f;
 
 public:
 	FORCEINLINE void SetChacraRatio() { ChacraRatio = CurrentChacra / MaxChacra; }		
 
 	UFUNCTION()
-	FORCEINLINE float GetChacraRatio() { return ChacraRatio; }							
+	FORCEINLINE float GetChacraRatio() { return ChacraRatio; }	
 
-	UFUNCTION()
+	FORCEINLINE float GetChacra() { return CurrentChacra; }
+
+	UFUNCTION(Server, Reliable, WithValidation)
 	void ChargingChacra();
 
-	UFUNCTION()
+	UFUNCTION(Server, Reliable, WithValidation)
 	void UseChacra();				// Decressed Chacra
 
-	UFUNCTION()
+	UFUNCTION(Server, Reliable, WithValidation)
 	void ResetChacraCnt(bool bIsUsed = true);
 
 	UFUNCTION()

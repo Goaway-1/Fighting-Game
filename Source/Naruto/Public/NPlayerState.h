@@ -4,8 +4,6 @@
 #include "GameFramework/PlayerState.h"
 #include "NPlayerState.generated.h"
 
-DECLARE_MULTICAST_DELEGATE(FOnPlayerHealthChangeDelegate);	//체력 변경
-
 UCLASS()
 class NARUTO_API ANPlayerState : public APlayerState
 {
@@ -13,15 +11,13 @@ class NARUTO_API ANPlayerState : public APlayerState
 
 public:
 	ANPlayerState();
-	float GetHealth() const;
+	float GetState(EWidgetState state)  const;
 	void InitPlayerData();
 
 	UFUNCTION()
-	void SetHealth(float val);
-
-	FOnPlayerHealthChangeDelegate OnPlayerHealthChanged;		//데이터가 변동되면, UI 또한 연동되로고 델리게이트 설정
-
+	void SetState(EWidgetState state, float val);			// Set Values..
 protected:
-	UPROPERTY(VisibleAnywhere,Transient)
 	float Health;
+	float Chacra;
+	int SideStep;
 };

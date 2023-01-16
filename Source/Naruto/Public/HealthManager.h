@@ -35,7 +35,10 @@ public:
 	FORCEINLINE void SetHealthRatio(){	HealthRatio = CurrentHealth / MaxHealth; }
 
 	UFUNCTION()
-	bool SetDecreaseHealth(float val);			// Decrease Health & Return true if Health is under than 0
+	void SetDecreaseHealth(float val);			// Decrease Health & Return true if Health is under than 0
+
+	UFUNCTION()
+	bool GetIsDead();
 
 	UFUNCTION()
 	FORCEINLINE float GetHealthRatio() { return HealthRatio; }

@@ -136,9 +136,6 @@ protected:
 
 	UFUNCTION()
 	void ChacraDash();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerChacraDash();
 #pragma endregion
 
 #pragma region SIDESTEP
@@ -263,9 +260,6 @@ protected:
 	UPROPERTY()
 	FTimerHandle GravityHandle;		          // Set Default Gravity
 
-	UPROPERTY(Replicated, VisibleAnywhere, Category="AIR")
-	bool bIsGravityHandling = false;        // Current Gravity is Working..?
-
 	const float ResetGravityTime = 0.5f;    // Reset Time..
 public:
 	//UFUNCTION()
@@ -274,9 +268,6 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void SetServerGravity(float val = 0);         // Server Gravity ON&OFF
-
-	UFUNCTION()
-	FORCEINLINE void SetGravityHandling(bool val) { bIsGravityHandling = val;}		//AttackActorComponent에서 호출할껄야..
 #pragma endregion
 
 #pragma region NINJA_STAR
@@ -290,12 +281,16 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
 	class UHealthManager* HealthManager;
 
+	UFUNCTION()
+	void DecreasedHealth();						// if Hited
 public:
 	UFUNCTION()
 	FORCEINLINE UHealthManager* GetHealthManager() { return HealthManager; }
-
 #pragma endregion
 
+public:
+	UFUNCTION(Server, Reliable, WithValidation)
+	void UpdateWidget(const EWidgetState state);			// Save state at PlayerState & Update Widget 
 
 #pragma region TESTMODE
 public:

@@ -3524,3 +3524,256 @@
 
 > **<h3>Realization</h3>**  
   - 위젯 마음에 안듦 수정 필요!
+
+## **Day_28**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">체력 위젯 수정_2</span>
+  - <img src="Image/HealthWidget_Complete.gif" height="300" title="HealthWidget_Complete">
+  - 이전에는 바인딩을 사용하여 각 플레이어의 체력만 나왔다. 이는 배틀 시스템에 적합하지 않다고 판단하여, 두 플레이어의 체력이 모두 노출되도록 수정.
+  - 바인딩을 삭제하고, PlayerState에 Player의 체력을 저장하고, PlayerController에서 Hited될때마다 갱신하고 위젯에 정보를 넘겨준다.
+    - PlayerState의 Health는 자동으로 RPC되기 때문에 Replicated하지 않아도된다.
+    - PlayerController클래스에서 위젯을 갱신할때, PlayerState를 얻기 위해서 서버에서 진행되지만, 위젯에 적용할때는 클라이언트에서만 진행한다.
+      - 서버 : SetWidget(), 클라 : UpdateWidget()
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayerState.cpp
+      void ANPlayerState::SetHealth(float val) {
+        Health = val;
+      }
+      ```
+      ```cpp
+      //NPlayerController.cpp
+      void ANPlayerController::BeginPlay() {
+        if (IsLocalPlayerController() && MainWidgetClass && CutSceneWidgetClass) {
+          ...
+            // Set Health
+            P1HealthWidget = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1Health");
+            P2HealthWidget = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P2Health");
+
+            // Reset All Widget..
+            ResetWidget();
+          }
+        }
+      }
+      void ANPlayerController::SetWidget() {
+        int i = 0;
+        for (auto x : GetWorld()->GetGameState()->PlayerArray){
+          ANPlayerState* Stae = Cast<ANPlayerState>(x);
+
+          UpdateWidget(i++, Stae->GetHealth());
+        }
+      }
+      void ANPlayerController::UpdateWidget_Implementation(int idx, float health){
+        if (idx == 0) {
+          P1HealthWidget->UpdatePlayerState(health);
+        }
+        else {
+          P2HealthWidget->UpdatePlayerState(health);
+        }
+      }
+      void ANPlayerController::ResetWidget_Implementation() {
+        P1HealthWidget->UpdatePlayerState(100);
+        P2HealthWidget->UpdatePlayerState(100);
+      }
+      ```
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::DecreasedHealth() {
+        // @TODO : 데미지 값 추가
+        GetHealthManager()->SetDecreaseHealth(10.f);
+        GetCurAttackComp()->RotateToActor();
+        if (MainPlayerState) MainPlayerState->SetHealth(GetHealthManager()->GetCurrentHealth());
+
+        // Update Widget
+        if (MainPlayerController) {
+          GetMainController()->SetWidget();
+          AnotherPlayer->GetMainController()->SetWidget();
+        }
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayerState.h
+      protected:
+        float Health;
+      ```
+      ```cpp
+      //NPlayerController.h
+      private:
+        UFUNCTION(Client, Reliable)
+        void UpdateWidget(int idx, float health);			// Update Widget Only Client
+          
+        UFUNCTION(Client, Reliable)
+        void ResetWidget();									          // INIT Widget
+      public:
+        UFUNCTION()
+        void SetWidget();								              // Some Player State Changed..
+      ```
+      ```cpp
+      //NPlayer.h
+      protected:
+      	UFUNCTION()
+	      void DecreasedHealth();                       // if Hited
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">차크라&회피 위젯 추가</span>
+  - <img src="Image/AllWidget.gif" height="300" title="AllWidget">
+  - 체력과 동일하게 적용했는데, 차크라는 적용이 되지 않는 문제 발생
+    - 원인은 차크라의 값이 서버에 Replicated되지 않았기 때문이였기 때문에, ChacraActorComponent의 메서드를 Server로 수정
+  - Player클래스에 UpdateWidget()함수의 매개변수에서 Widget의 타입을 설정하고, 위젯의 정보를 업데이트할 수 있도록하였다.
+    - 호출은 서버로 호출되며, 이는 각 변수들의 정보를 얻어오기 위함이다.
+    - __"UpdateWidget(EWidgetState::EWS_Switch)"와__ 같이 사용하며, 차크라는 ChacraActorComponent의 "ResetChacraCnt(), ChargingChacra()"에서 호출하여 사용한다. (이때 각 메서드들은 서버에서 호출되어 사용된다.)
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayerState.cpp
+      ANPlayerState::ANPlayerState() {
+	      Health = 100.f;
+        Chacra = 100.f;
+        SideStep = 4;
+      }
+      float ANPlayerState::GetState(EWidgetState state) const{
+        switch (state)
+        {
+        case EWidgetState::EWS_Health:
+          return Health;
+        case EWidgetState::EWS_Chacra:
+          return Chacra;
+        case EWidgetState::EWS_Switch:
+          return (float)SideStep;
+        default:
+          return Chacra;
+        }
+      }
+      void ANPlayerState::InitPlayerData(){
+        Health = 100.f;
+        Chacra = 100.f;
+        SideStep = 4;
+      }
+      void ANPlayerState::SetState(EWidgetState state, float val) {
+        switch (state)
+        {
+        case EWidgetState::EWS_Health:
+          Health = val;
+          break;
+        case EWidgetState::EWS_Chacra:
+          Chacra = val;
+          break;
+        case EWidgetState::EWS_Switch:
+          SideStep = (int)val;
+          break;
+        default:
+          break;
+        }
+      }
+      ```
+      ```cpp
+      //NPlayerController.cpp
+      ANPlayerController::ANPlayerController() {
+        HealthWidgets.SetNum(2);
+        ChacraWidgets.SetNum(2);
+        SideStepWidgets.SetNum(2);
+      }
+      void ANPlayerController::SetWidget_Implementation(const EWidgetState State) {
+        int i = 0;
+        for (auto s : GetWorld()->GetGameState()->PlayerArray){
+          ANPlayerState* PState = Cast<ANPlayerState>(s);
+
+          UpdateWidget(i++, State, PState->GetState(State));
+        }
+      }
+      bool ANPlayerController::SetWidget_Validate(const EWidgetState State) {
+        return true;
+      }
+      void ANPlayerController::UpdateWidget_Implementation(int idx, const EWidgetState State, float value){
+        switch (State)
+        {
+        case EWidgetState::EWS_Health:
+          HealthWidgets[idx]->UpdateState(State,value);
+          break;
+        case EWidgetState::EWS_Chacra:
+          ChacraWidgets[idx]->UpdateState(State,value);
+          break;
+        case EWidgetState::EWS_Switch:
+          SideStepWidgets[idx]->UpdateState(State,value);
+          break;
+        default:
+          break;
+        }
+      }
+      ```
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::UpdateWidget_Implementation(const EWidgetState state) {
+        if (MainPlayerController) {
+          if (MainPlayerState) {
+            switch (state)
+            {
+            case EWidgetState::EWS_Health:
+              MainPlayerState->SetState(state, GetHealthManager()->GetCurrentHealth());
+              break;
+            case EWidgetState::EWS_Chacra:
+              MainPlayerState->SetState(state, GetCurChacraComp()->GetChacra());
+              break;
+            case EWidgetState::EWS_Switch:
+              MainPlayerState->SetState(state, SideStepCnt);
+              break;
+            default:
+              break;
+            }
+          }
+
+          // Update Widget
+          GetMainController()->SetWidget(state);
+          AnotherPlayer->GetMainController()->SetWidget(state);
+        }
+      }
+      bool ANPlayer::UpdateWidget_Validate(const EWidgetState state) {
+        return true;
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayerState.h
+      public:
+      	UFUNCTION()
+        void SetState(EWidgetState state, float val);         //Set Values...
+      protected:
+        float Health;
+        float Chacra;
+        int SideStep;
+      ```
+      ```cpp
+      public:
+        UPROPERTY(VisibleAnywhere, Category = "Widget")
+        TArray<class UPlayerStateWidget*> HealthWidgets;
+
+        UPROPERTY(VisibleAnywhere, Category = "Widget")
+        TArray<class UPlayerStateWidget*> ChacraWidgets;
+
+        UPROPERTY(VisibleAnywhere, Category = "Widget")
+        TArray<class UPlayerStateWidget*> SideStepWidgets;
+      public:
+        UFUNCTION(Server, Reliable, WithValidation)
+        void SetWidget(const EWidgetState State);								         // Some Player State Changed..
+      ```
+      ```cpp
+      //NPlayer.h
+      public:
+        UFUNCTION(Server, Reliable, WithValidation)
+        void UpdateWidget(const EWidgetState state);			// Save state at PlayerState & Update Widget
+      ```
+      </details>
+    
+> **<h3>Realization</h3>**  
+  - 차크라 계수를 Widget에 띄우는데 많은 시행착오가 있었고, 덕분에 회피 계수는 쉽게 적용할 수 있었다.
+    - 원인은 차크라의 값이 서버에 Replicated되지 않았기 때문이였기 때문이였다.
+  

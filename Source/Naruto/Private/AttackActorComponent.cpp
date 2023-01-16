@@ -65,11 +65,9 @@ void UAttackActorComponent::Attack() {
 				SetComoboCnt(1);
 				ClearOverlapActors();
 			}
-			CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 
-			/** Disable Gravity */
-			CurOwner->SetGravityHandling(false);		
-			//CurOwner->SetGravity(1.f);
+			UE_LOG(LogTemp, Warning, TEXT("Air Attack %d %d"), bAirAttackEnd, bAttacking);
+			CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 		}
 		else if (CurOwner->IsPlayerCondition(EPlayerCondition::EPC_Block)) {
 			UE_LOG(LogTemp, Warning, TEXT("Grap Attack"));
@@ -114,6 +112,7 @@ void UAttackActorComponent::Attack() {
 	}
 }
 void UAttackActorComponent::EndAttack() {
+	UE_LOG(LogTemp, Warning, TEXT("Air End %d %d"), bAirAttackEnd, bAttacking);
 	CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Idle); 
 	bAttacking = false;
 	CurKeyUD = EKeyUpDown::EKUD_Default;
@@ -122,13 +121,15 @@ void UAttackActorComponent::EndAttack() {
 }
 void UAttackActorComponent::AttackInputCheck() {
 	bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
+	UE_LOG(LogTemp, Warning, TEXT("Air Start Check %d %d"), bAirAttackEnd, bAttacking);
 	if (isFalling) {
-		if (OverlapActors.Num() <= 0 || ComboCnt == 5) {		/** Last Attack & Not Hit then fall Down.. */
-			UE_LOG(LogTemp,Warning, TEXT("%d"), OverlapActors.Num());
-			bAirAttackEnd = true;
-			CurOwner->SetGravity(1.f);
-		}
-		else if (bIsAttackCheck) {								/** Continue Fly Attack.. */
+		UE_LOG(LogTemp, Warning, TEXT("Air Check %d %d"), bAirAttackEnd, bAttacking);
+		//if (OverlapActors.Num() <= 0 || ComboCnt == 7) {		/** Last Attack & Not Hit then fall Down.. */
+		//	UE_LOG(LogTemp,Warning, TEXT("[InputCheck] %d %d"), OverlapActors.Num(), ComboCnt);
+		//	bAirAttackEnd = true;
+		//	CurOwner->SetGravity(1.f);
+		//}
+	    if (bIsAttackCheck) {								/** Continue Fly Attack.. */
 			SetComoboCnt(ComboCnt + 1);
 			bIsAttackCheck = false;
 			Attack();

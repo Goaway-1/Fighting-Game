@@ -11,22 +11,17 @@ UCLASS(Abstract)
 class NARUTO_API UPlayerStateWidget : public UUserWidget
 {
 	GENERATED_BODY()
-public:
-	UFUNCTION(Client, Reliable)
-	//UFUNCTION()
-	void BindPlayerState(class ANPlayerState* PlayerState);
-
 protected:
 	UPROPERTY(meta = (BindWidget))
-	class UProgressBar* HealthBar;
+	class UProgressBar* StateBar;
 
 	UPROPERTY(meta = (BindWidget))
-	class UTextBlock* CurrentHealthLabel;
+	class UTextBlock* CurrentStateLabel;
 
+public:
 	UFUNCTION()
-	void UpdatePlayerState();
+	void UpdateState(EWidgetState state, float value);
 
 private:
-	//TWeakObjectPtr<class ANPlayerState> CurrentPlayerState;
-	class ANPlayerState* CurrentPlayerState;
+	TWeakObjectPtr<class ANPlayerState> CurrentPlayerState;
 };

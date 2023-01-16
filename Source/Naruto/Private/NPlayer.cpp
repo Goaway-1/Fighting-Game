@@ -17,6 +17,7 @@
 #include "ChacraActorComponent.h"
 #include "MontageManager.h"
 #include "NPlayerState.h"
+#include "PlayersInfoManager.h"
 #include "DrawDebugHelpers.h"
 
 ANPlayer::ANPlayer() {
@@ -92,14 +93,11 @@ void ANPlayer::BeginPlay() {
 void ANPlayer::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
 
+	/** Get PlayerState */
 	if (!MainPlayerState) MainPlayerState = Cast<ANPlayerState>(GetPlayerState());
 }
 void ANPlayer::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
-
-	// @TODO : 지워야돼
-	GetHealthManager()->SetDecreaseHealth(0.3f);
-	if (MainPlayerState) MainPlayerState->SetHealth(GetHealthManager()->GetCurrentHealth());
 
 	// 지울거얌 : 강제로 상태 만들었음
 	if (bTestMode) {
@@ -111,7 +109,7 @@ void ANPlayer::Tick(float DeltaTime) {
 	if (CameraManager && HasAuthority()) {
 		FRotator NRot = FRotator(CameraManager->GetActorRotation().Pitch, CameraManager->GetActorRotation().Yaw, GetController()->GetControlRotation().Roll);
 		
-		if (MainPlayerController) MainPlayerController->ClientSetRotation(NRot);
+		if (MainPlayerController) MainPlayerController->ClientSetRotation(NRot); 
 		else MainPlayerController = Cast<ANPlayerController>(GetController());
 	}
 
@@ -120,19 +118,6 @@ void ANPlayer::Tick(float DeltaTime) {
 
 	/** Active Chacra Dash */
 	AutoChacraDash(DeltaTime);
-
-	/** ON& OFF Gravitiy */
-	if (!bIsGravityHandling && (IsPlayerCondition(EPlayerCondition::EPC_AirAttack) || IsPlayerCondition(EPlayerCondition::EPC_AirHited))) {
-		SetGravity(0.f);
-		GetMovementComponent()->StopMovementImmediately();
-
-		bIsGravityHandling = true;
-		//FTimerDelegate TimerDel;
-		//TimerDel.BindUFunction(this, FName("SetGravity"), 1.f);
-		//GetWorld()->GetTimerManager().ClearTimer(GravityHandle);
-		////GetWorld()->GetTimerManager().SetTimer(GravityHandle, TimerDel, ResetGravityTime, false);
-		//GetWorld()->GetTimerManager().SetTimer(GravityHandle, TimerDel, 2.f, false);
-	}
 }
 void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -162,7 +147,6 @@ void ANPlayer::SetAnotherPlayer() {
 		for (auto x : GetWorld()->GetGameState()->PlayerArray) {
 			if (this != x->GetPawn()) {
 				AnotherPlayer = Cast<ANPlayer>(x->GetPawn());
-				break;
 			}
 		}
 	}
@@ -268,13 +252,14 @@ void ANPlayer::IsHited() {
 	}
 	
 	/** Decreased Health & UI */
-	if (GetHealthManager()->SetDecreaseHealth(10.f)) {
-		GetCurAttackComp()->RotateToActor();
+	DecreasedHealth();		
+	
+	/** Check Is Dead? */
+	if (GetHealthManager()->GetIsDead()) {
 		UE_LOG(LogTemp, Warning, TEXT("Player is Died"));
 		SetPlayerCondition(EPlayerCondition::EPC_Dead);
 		return;
 	}
-	if (MainPlayerState) MainPlayerState->SetHealth(GetHealthManager()->GetCurrentHealth());
 
 	SetPlayerCondition(EPlayerCondition::EPC_Hited);
 	if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill1) || AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_Skill2)) {
@@ -306,11 +291,10 @@ void ANPlayer::IsHited() {
 			GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
 
 			// Set ON Gravity & GO DOWN if Last Attack Hited
-			if(AnotherPlayer->GetCurAttackComp()->GetComboCnt() == 5) {
+			if(AnotherPlayer->GetCurAttackComp()->GetComboCnt() == 8) {
 				//LaunchCharacter(GetActorUpVector() * - 1000.f,false,false);
 				SetGravity(1.f);
 			}
-			else bIsGravityHandling = false;
 		}
 		else if (AnotherPlayer->IsPlayerCondition(EPlayerCondition::EPC_UpperAttack)) {				/** 공중으로 날려! */
 			UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
@@ -319,8 +303,6 @@ void ANPlayer::IsHited() {
 			// Launch Another Characer
 			FVector ForceVec = (GetActorForwardVector() * -500.f) + FVector(0.f, 0.f, 2000.f);
 			LaunchCharacter(ForceVec, false, false);
-			
-			bIsGravityHandling = false;
 		}
 		else {
 			UE_LOG(LogTemp, Warning, TEXT("Just Vitcim!"));
@@ -332,6 +314,16 @@ void ANPlayer::IsHited() {
 		GetCurAttackComp()->RotateToActor();
 		if (AnotherPlayer->GetCurAttackComp()->GetComboCnt() >= 2) TargetCamera->SetAttackView();
 	}
+}
+void ANPlayer::DecreasedHealth() {
+	// @TODO : 데미지 값 추가
+	GetHealthManager()->SetDecreaseHealth(1.f);
+	GetCurAttackComp()->RotateToActor();
+
+	UpdateWidget(EWidgetState::EWS_Health);
+
+	GetMainController()->SetWidget(EWidgetState::EWS_Chacra);
+	AnotherPlayer->GetMainController()->SetWidget(EWidgetState::EWS_Chacra);
 }
 void ANPlayer::PressBlock() { 
 	if(!GetMovementComponent()->IsFalling()) SetPlayerCondition(EPlayerCondition::EPC_Block);
@@ -363,10 +355,11 @@ bool ANPlayer::ServerSetPlayerCondition_Validate(EPlayerCondition NewCondition) 
 }
 void ANPlayer::StartChacra() {
 	ChacraPressedTime = FDateTime::Now().GetTicks();
+	SetPlayerCondition(EPlayerCondition::EPC_Charge);
 	bisCharing = false;
 }
 void ANPlayer::ChargingChacra() {
-	if (!IsPlayerCondition(EPlayerCondition::EPC_Idle)) {
+	if (!IsPlayerCondition(EPlayerCondition::EPC_Charge)) {
 		EndChacra();
 		return;
 	}
@@ -374,40 +367,58 @@ void ANPlayer::ChargingChacra() {
 	/** ChacraCharging in few Seconds */
 	int64 HoldingTime = ChacraPressedTime / 10000;
 	if (HoldingTime >= ChacraChargingSec) {
-		CurChacraComp->ChargingChacra();
+		GetCurChacraComp()->ChargingChacra();
 		bisCharing = true;
 	}
 }
 void ANPlayer::EndChacra() {
-	if(bisCharing) return;
-
 	/** Try to Set Chacra */
-	CurChacraComp->UseChacra();
+	if(!bisCharing) GetCurChacraComp()->UseChacra();
+
+	SetPlayerCondition(EPlayerCondition::EPC_Idle);
+}
+void ANPlayer::UpdateWidget_Implementation(const EWidgetState state) {
+	if (MainPlayerController) {
+		if (MainPlayerState) {
+			switch (state)
+			{
+			case EWidgetState::EWS_Health:
+				MainPlayerState->SetState(state, GetHealthManager()->GetCurrentHealth());
+				break;
+			case EWidgetState::EWS_Chacra:
+				MainPlayerState->SetState(state, GetCurChacraComp()->GetChacra());
+				break;
+			case EWidgetState::EWS_Switch:
+				MainPlayerState->SetState(state, SideStepCnt);
+				break;
+			default:
+				break;
+			}
+		}
+
+		// Update Widget
+		GetMainController()->SetWidget(state);
+		AnotherPlayer->GetMainController()->SetWidget(state);
+	}
+}
+bool ANPlayer::UpdateWidget_Validate(const EWidgetState state) {
+	return true;
 }
 void ANPlayer::ChacraDash() {
 	if (AnotherPlayer) {
 		UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
+		
+		SetPlayerCondition(EPlayerCondition::EPC_Dash);
+		CurChacraComp->ResetChacraCnt();
+		CurAttackComp->ResetAll();
 
-		if (!HasAuthority()) ServerChacraDash();
-		else {
-			SetPlayerCondition(EPlayerCondition::EPC_Dash);
-			CurChacraComp->ResetChacraCnt();
-			CurAttackComp->ResetAll();
+		// Animation
+		GetMontageManager()->PlayNetworkMontage(GetMontageManager()->GetActionMontage().MT_ChacraDash, 0.f, GetPlayerCondition());
 
-			// Animation
-			GetMontageManager()->PlayNetworkMontage(GetMontageManager()->GetActionMontage().MT_ChacraDash, 0.f, GetPlayerCondition());
-
-			// Reset Timer
-			GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
-			GetWorld()->GetTimerManager().SetTimer(StopChacraDashHandle, this, &ANPlayer::StopChacraDash, 1.5f, false);
-		}
+		// Reset Timer
+		GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
+		GetWorld()->GetTimerManager().SetTimer(StopChacraDashHandle, this, &ANPlayer::StopChacraDash, 1.5f, false);
 	}
-}
-void ANPlayer::ServerChacraDash_Implementation() {
-	ChacraDash();
-}
-bool ANPlayer::ServerChacraDash_Validate() {
-	return true;
 }
 void ANPlayer::AutoChacraDash(float DeltaTime) {
 	if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
@@ -416,14 +427,9 @@ void ANPlayer::AutoChacraDash(float DeltaTime) {
 			
 			// Set Player Condition if Crash 'in Air'
 			if (GetMovementComponent()->IsFalling()) {
-				UE_LOG(LogTemp, Warning, TEXT("is Working!"));
-				SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
-				AnotherPlayer->SetPlayerCondition(EPlayerCondition::EPC_AirHited);
-
-				// Set Location (Force)
-				FVector TmpVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100);
-				SetActorLocation(TmpVec);
-				bIsGravityHandling = false;
+				SetGravity(0.f);
+				AnotherPlayer->SetGravity(0.f);
+				AnotherPlayer->SetPlayerCondition(EPlayerCondition::EPC_Idle);
 			}
 			return;
 		}
@@ -462,6 +468,9 @@ void ANPlayer::SideStep() {
 		ClientSideStep(RotateVal);
 		SideStepCnt--;
 
+		//Update Widget
+		UpdateWidget(EWidgetState::EWS_Switch);
+
 		GetWorld()->GetTimerManager().ClearTimer(SideStepHandle);
 		GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
 	}
@@ -478,26 +487,38 @@ bool ANPlayer::ServerSideStep_Validate() {
 void ANPlayer::RecoverSideStepCnt() {
 	if (++SideStepCnt < SideStepMaxCnt) {
 		UE_LOG(LogTemp, Warning, TEXT("SideStepCnt %d"), SideStepCnt);
+
+		//Update Widget
+		UpdateWidget(EWidgetState::EWS_Switch);
+
 		GetWorld()->GetTimerManager().ClearTimer(SideStepHandle);
 		GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
 	}
 }
 void ANPlayer::SetGravity_Implementation(float val) {
-	/*if(!HasAuthority()) SetServerGravity(val);
-	
+	if(!HasAuthority())	SetServerGravity(val);
 	if (GetCharacterMovement()->GravityScale != val) {
 		GetCharacterMovement()->GravityScale = val;
-		SetPlayerCondition(EPlayerCondition::EPC_Idle);
-	}*/
-	SetServerGravity(val);
+		GetMovementComponent()->StopMovementImmediately();
+
+		if (val != 1.f) {
+			FTimerDelegate TimerDel;
+			TimerDel.BindUFunction(this, FName("SetGravity"), 1.f);
+			GetWorld()->GetTimerManager().ClearTimer(GravityHandle);
+			GetWorld()->GetTimerManager().SetTimer(GravityHandle, TimerDel, 2.f, false);
+		}
+	}
 }
 void ANPlayer::SetServerGravity_Implementation(float val) {
 	if (GetCharacterMovement()->GravityScale != val) {
 		GetCharacterMovement()->GravityScale = val;
-		SetPlayerCondition(EPlayerCondition::EPC_Idle);
+		GetMovementComponent()->StopMovementImmediately();
+		
+		if (val != 1.f) {
+			FVector TmpVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100);
+			SetActorLocation(TmpVec);
+		}
 	}
-	
-	//SetGravity(val);
 }
 bool ANPlayer::SetServerGravity_Validate(float val) {
 	return true;
@@ -518,5 +539,4 @@ void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifeti
 	DOREPLIFETIME(ANPlayer, PlayerCondition);
 	DOREPLIFETIME(ANPlayer, SideStepCnt);
 	DOREPLIFETIME(ANPlayer, AnotherPlayer);
-	DOREPLIFETIME(ANPlayer, bIsGravityHandling);
 }

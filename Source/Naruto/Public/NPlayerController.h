@@ -6,9 +6,13 @@
 #include "GameFramework/PlayerController.h"
 #include "NPlayerController.generated.h"
 
-/**
- * 
- */
+UENUM(BlueprintType)
+enum class EWidgetState : uint8 {
+	EWS_Health			UMETA(DisplayName = "Health"),
+	EWS_Chacra			UMETA(DisplayName = "Chacra"),
+	EWS_Switch			UMETA(DisplayName = "Switch")
+};
+
 UCLASS()
 class NARUTO_API ANPlayerController : public APlayerController
 {
@@ -48,17 +52,24 @@ public:
 #pragma region HEALTH&CHACRA
 public:
 	UPROPERTY(VisibleAnywhere, Category = "Widget")
-	class UPlayerStateWidget* HealthWidget;
+	TArray<class UPlayerStateWidget*> HealthWidgets;
 
-	UFUNCTION(Client, Reliable)
-	void SetHealthWidget();
+	UPROPERTY(VisibleAnywhere, Category = "Widget")
+	TArray<class UPlayerStateWidget*> ChacraWidgets;
 
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void SetMultiHealthWidget();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void SetSeverHealthWidget();
-
+	UPROPERTY(VisibleAnywhere, Category = "Widget")
+	TArray<class UPlayerStateWidget*> SideStepWidgets;
 #pragma endregion
 
+#pragma region WIDGET
+private:
+	UFUNCTION(Client, Reliable)
+	void UpdateWidget(int idx, EWidgetState State, float value);			// Update Widget Only Client
+		
+	UFUNCTION(Client, Reliable)
+	void ResetWidget();														// INIT Widget
+public:
+	UFUNCTION(Server, Reliable, WithValidation)
+	void SetWidget(const EWidgetState State);								// Some Player State Changed..
+#pragma endregion
 };
