@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/DataTable.h"
 #include "AttackStruct.generated.h"
 
 
@@ -56,7 +57,7 @@ public:
 };
 
 USTRUCT(Atomic, BlueprintType)
-struct FChacraAttackMontageStruct
+struct FChacraAttackMontageStruct 
 {
 	GENERATED_BODY()
 public:
@@ -66,7 +67,7 @@ public:
 };
 
 USTRUCT(Atomic, BlueprintType)
-struct FChacraSkill
+struct FChacraSkill 
 {
 	GENERATED_BODY()
 public:
@@ -85,7 +86,7 @@ public:
 
 /** °ø°Ý ¸ùÅ¸ÁÖ */
 USTRUCT(Atomic, BlueprintType)
-struct FAttackMontageStruct
+struct FAttackMontageStruct 
 {
 	GENERATED_BODY()
 public:
@@ -124,6 +125,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_JumpVictim;
+
+	/** Jump Hited End */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UAnimMontage* MT_JumpVictimEnd;
 
 	/** Block Hited */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)

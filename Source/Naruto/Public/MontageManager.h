@@ -56,6 +56,17 @@ private:
 protected:
 	/** Montage List */
 	UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
+	TArray<FAttackMontageStruct> ActionMontages;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
 	FAttackMontageStruct ActionMontage;
-		
+
+//public:
+//	UFUNCTION()
+//	void SetActionMontage(int idx);
+//
+//
+//	//UFUNCTION(Client, Reliable)
+//	UFUNCTION(Server, Reliable, WithValidation)
+//	void ClSetActionMontage(int idx);
 };

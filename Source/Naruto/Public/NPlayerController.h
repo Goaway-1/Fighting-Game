@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -8,9 +6,10 @@
 
 UENUM(BlueprintType)
 enum class EWidgetState : uint8 {
-	EWS_Health			UMETA(DisplayName = "Health"),
-	EWS_Chacra			UMETA(DisplayName = "Chacra"),
-	EWS_Switch			UMETA(DisplayName = "Switch")
+	EWS_Health				UMETA(DisplayName = "Health"),
+	EWS_Chacra				UMETA(DisplayName = "Chacra"),
+	EWS_Switch				UMETA(DisplayName = "Switch"),
+	EWS_Condition			UMETA(DisplayName = "Condition")
 };
 
 UCLASS()

@@ -1,10 +1,9 @@
 #include "NPlayerState.h"
+#include "NPlayer.h"
 #include "NPlayerController.h"
 
 ANPlayerState::ANPlayerState() {
-	Health = 100.f;
-	Chacra = 100.f;
-	SideStep = 4;
+	InitPlayerData();
 }
 float ANPlayerState::GetState(EWidgetState state) const{
 	switch (state)

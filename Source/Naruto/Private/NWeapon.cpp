@@ -23,10 +23,15 @@ void ANWeapon::BeginPlay(){
 
 	SetCollisionONOFF(false);
 }
-void ANWeapon::SetWeaponRandom() {
+int ANWeapon::SetWeaponRandom() {
+	/** Set AttackController */
+	OwnPlayer = Cast<ANPlayer>(GetOwner());
+	AttackController = OwnPlayer->GetCurAttackComp();
+
+	int WeaponTmp = 0;
 	if (WeaponMeshType.Num() >= 2) {
 		UE_LOG(LogTemp, Warning, TEXT("%s SetWeaponRandom is Called!"),*GetOwner()->GetName());
-		int32 WeaponTmp = FMath::RandRange(0, 1);
+		WeaponTmp = FMath::RandRange(0, 1);
 		if (WeaponTmp == 0) {
 			MeshComp->SetStaticMesh(WeaponMeshType[WeaponTmp]);
 			WeaponType = EWeaponType::EWT_Sword;
@@ -36,19 +41,16 @@ void ANWeapon::SetWeaponRandom() {
 			WeaponType = EWeaponType::EWT_Blade;
 		}
 	}
-
-	/** Set AttackController */
-	OwnPlayer = Cast<ANPlayer>(GetOwner());
-	AttackController = OwnPlayer->GetCurAttackComp();
+	return WeaponTmp;
 }
 void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
 		AttackController->SetOverlapActors(OtherActor);
 
-		// Hited Handle 
-		// @TODO : set hited Val
+		// @TODO : set hited Val, 공격자 상태, 카운트, 
+		UE_LOG(LogTemp,Warning,TEXT("Overlap %s %d"), *OwnPlayer->GetEnumToString(OwnPlayer->GetPlayerCondition()), OwnPlayer->GetCurAttackComp()->GetComboCnt());
 		ANPlayer* victim = Cast<ANPlayer>(OtherActor);
-		victim->IsHited();
+		victim->IsHited(OwnPlayer->GetPlayerCondition(), OwnPlayer->GetCurAttackComp()->GetComboCnt());
 	}
 }
 void ANWeapon::SetCollisionONOFF(bool isSet) {

@@ -5,7 +5,6 @@
 #include "AttackStruct.h"
 #include "NPlayer.generated.h"
 
-
 UENUM(BlueprintType)
 enum class EPlayerCondition : uint8 {
 	EPC_Idle			UMETA(DisplayName = "Idle"),
@@ -57,6 +56,7 @@ public:
 	UFUNCTION()
 	FORCEINLINE ANPlayerController* GetMainController() { return MainPlayerController;}
 
+	FString GetEnumToString(EPlayerCondition value);
 #pragma region PLAYERCONDITION
 public:
 	UFUNCTION(BlueprintCallable)
@@ -235,7 +235,7 @@ public:
 #pragma region HITED
 public:
 	UFUNCTION()
-	void IsHited();
+	void IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt);
 #pragma endregion
 
 #pragma region BLOCK
@@ -261,13 +261,36 @@ protected:
 	FTimerHandle GravityHandle;		          // Set Default Gravity
 
 	const float ResetGravityTime = 0.5f;    // Reset Time..
+
 public:
-	//UFUNCTION()
-	UFUNCTION(Client, Reliable)
-	void SetGravity(float val = 0);         // Gravity ON&OFF
+	/** Player Gravity ON */
+	UFUNCTION()
+	void SetGravity(float val = 0);						
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiSetGravity(float val = 0);						
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void SetServerGravity(float val = 0);         // Server Gravity ON&OFF
+	void ServerSetGravity(float val = 0);						
+
+	/** All Players Gravity ON */
+	UFUNCTION()
+	void SetAllGravity(float val = 0);						
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiSetAllGravity(float val = 0);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetAllGravity(float val = 0);         
+
+	/** Grvaity Value.. */
+	float GravityVal = 1.f;
+	bool isGravityDone = false;
+
+	UFUNCTION()
+	void EndGravity();											// Gravity OFF
+
+	void UpdateGravity();										// for Tick...
 #pragma endregion
 
 #pragma region NINJA_STAR
@@ -288,9 +311,11 @@ public:
 	FORCEINLINE UHealthManager* GetHealthManager() { return HealthManager; }
 #pragma endregion
 
+#pragma region WIDGET
 public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void UpdateWidget(const EWidgetState state);			// Save state at PlayerState & Update Widget 
+#pragma endregion
 
 #pragma region TESTMODE
 public:
@@ -300,4 +325,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "TestMode")
 	EPlayerCondition TestModePlayerCondition;
 #pragma endregion
+public:
+	int WeaponIdx = 0;
+
 };

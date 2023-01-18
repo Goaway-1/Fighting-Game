@@ -10,7 +10,7 @@
 #include "Net/UnrealNetwork.h"
 
 UAttackActorComponent::UAttackActorComponent() {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 	SetIsReplicated(true);
 }
 void UAttackActorComponent::BeginPlay() {
@@ -19,6 +19,12 @@ void UAttackActorComponent::BeginPlay() {
 void UAttackActorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	// Air Attack...
+	bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
+	if (!isFalling) {
+		bAirAttackEnd = false;	
+		bCanAirAttack = true;
+	}
 }
 void UAttackActorComponent::SetOverlapActors(AActor* actor) {
 	OverlapActors.Add(actor);
@@ -54,22 +60,20 @@ void UAttackActorComponent::Attack() {
 		UChacraActorComponent* ChacraCom = CurOwner->GetCurChacraComp();
 		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 
-		if(!isFalling) bAirAttackEnd = false;
-
 		if (isFalling && !bAirAttackEnd){/** 공중 공격 */
-			/** Reset & Play Montage */
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
 			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack)) {
-	
-				// test
+				if (!bCanAirAttack) return;
+
 				SetComoboCnt(1);
 				ClearOverlapActors();
 			}
 
-			UE_LOG(LogTemp, Warning, TEXT("Air Attack %d %d"), bAirAttackEnd, bAttacking);
 			CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+			
+			CurOwner->SetGravity(0.f);
 		}
-		else if (CurOwner->IsPlayerCondition(EPlayerCondition::EPC_Block)) {
+		else if (CurOwner->GetPlayerCondition() == EPlayerCondition::EPC_Block) {
 			UE_LOG(LogTemp, Warning, TEXT("Grap Attack"));
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Grap);
 			CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_GrapAttack, 1.f,CurOwner->GetPlayerCondition());
@@ -112,24 +116,26 @@ void UAttackActorComponent::Attack() {
 	}
 }
 void UAttackActorComponent::EndAttack() {
-	UE_LOG(LogTemp, Warning, TEXT("Air End %d %d"), bAirAttackEnd, bAttacking);
+	if (ComboCnt == 6) CurOwner->SetGravity(1.f);
+
 	CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Idle); 
 	bAttacking = false;
 	CurKeyUD = EKeyUpDown::EKUD_Default;
 	SetComoboCnt(1);
 	ClearOverlapActors();
 }
-void UAttackActorComponent::AttackInputCheck() {
+void UAttackActorComponent::AttackInputCheck() {	
 	bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
-	UE_LOG(LogTemp, Warning, TEXT("Air Start Check %d %d"), bAirAttackEnd, bAttacking);
 	if (isFalling) {
-		UE_LOG(LogTemp, Warning, TEXT("Air Check %d %d"), bAirAttackEnd, bAttacking);
-		//if (OverlapActors.Num() <= 0 || ComboCnt == 7) {		/** Last Attack & Not Hit then fall Down.. */
-		//	UE_LOG(LogTemp,Warning, TEXT("[InputCheck] %d %d"), OverlapActors.Num(), ComboCnt);
-		//	bAirAttackEnd = true;
-		//	CurOwner->SetGravity(1.f);
-		//}
-	    if (bIsAttackCheck) {								/** Continue Fly Attack.. */
+		bCanAirAttack = false;
+		if (OverlapActors.Num() <= 0) {		/** Last Attack & Not Hit then fall Down.. */
+			bAirAttackEnd = true;
+			bIsAttackCheck = false;
+			bAttacking = false;
+			CurOwner->SetGravity(1.f);
+			EndAttack(); 
+		}
+	    else if (bIsAttackCheck) {								/** Continue Fly Attack.. */
 			SetComoboCnt(ComboCnt + 1);
 			bIsAttackCheck = false;
 			Attack();
@@ -180,9 +186,8 @@ bool UAttackActorComponent::ServerRotateToActor_Validate(FRotator Rot) {
 	return true;
 }
 void UAttackActorComponent::SetComoboCnt(int16 cnt){
-	if(GetOwner()->GetLocalRole() != ROLE_Authority) ServerSetComboCnt(cnt);
-	
 	ComboCnt = cnt;
+	ServerSetComboCnt(cnt);
 }
 void UAttackActorComponent::MultiSetComoboCnt_Implementation(int16 cnt) {
 	ComboCnt = cnt;
@@ -191,8 +196,7 @@ bool UAttackActorComponent::MultiSetComoboCnt_Validate(int16 cnt) {
 	return true;
 }
 void UAttackActorComponent::ServerSetComboCnt_Implementation(int16 cnt) {
-	//MultiSetComoboCnt(cnt);
-	SetComoboCnt(cnt);
+	ComboCnt = cnt;
 }
 bool UAttackActorComponent::ServerSetComboCnt_Validate(int16 cnt) {
 	return true;
@@ -201,6 +205,9 @@ void UAttackActorComponent::ResetAll() {
 	SetComoboCnt(1);
 	bAttacking = false;
 	bIsAttackCheck = false;
+	bAirAttackEnd = false;
+	bCanAirAttack = true;
+	ClearOverlapActors();
 }
 void UAttackActorComponent::ThrowNinjaStar(bool bIsChacra) {
 	if (GetOwner()->GetLocalRole() != ROLE_Authority) ServerThrowNinjaStar(bIsChacra);

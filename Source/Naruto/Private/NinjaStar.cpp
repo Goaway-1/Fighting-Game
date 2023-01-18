@@ -69,7 +69,7 @@ void ANinjaStar::OnNinjaStarOverlapBegin(UPrimitiveComponent* OverlappedComponen
 		UE_LOG(LogTemp, Warning, TEXT("NinjaStar is Hited %s"), *OtherActor->GetName());
 
 		ANPlayer* victim = Cast<ANPlayer>(OtherActor);
-		victim->IsHited();
+		victim->IsHited(EPlayerCondition::EPC_Attack ,0);
 		StopStar();
 	}
 }

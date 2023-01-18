@@ -23,7 +23,7 @@ void UChacraActorComponent::UseChacra_Implementation() {
 	if ((ChacraCnt == 0 && CurrentChacra >= 30.f) || (ChacraCnt == 1 && CurrentChacra >= 60.f)) {
 		ChacraCnt++;
 
-		UE_LOG(LogTemp, Warning, TEXT("Chacra : %d"), ChacraCnt);
+		//UE_LOG(LogTemp, Warning, TEXT("Chacra : %d"), ChacraCnt);
 
 		FTimerDelegate ResetChacra;
 		ResetChacra.BindUFunction(this, FName("ResetChacraCnt"), false);
@@ -37,7 +37,7 @@ void UChacraActorComponent::ResetChacraCnt_Implementation(bool bIsUsed) {
 	/** Chacra consumption if used the skill */
 	if (bIsUsed && ChacraCnt > 0) {
 		CurrentChacra -= (ChacraCnt * 30.f);
-		UE_LOG(LogTemp, Warning, TEXT("[Chacra]Used Chacra"));
+		//UE_LOG(LogTemp, Warning, TEXT("[Chacra]Used Chacra"));
 
 		// Set Widget
 		if(OwnPlayer.IsValid())	OwnPlayer->UpdateWidget(EWidgetState::EWS_Chacra);
@@ -47,7 +47,7 @@ void UChacraActorComponent::ResetChacraCnt_Implementation(bool bIsUsed) {
 }
 void UChacraActorComponent::ChargingChacra_Implementation() {
 	if (CurrentChacra < MaxChacra) {
-		UE_LOG(LogTemp, Warning, TEXT("[Chacra]Charging"));
+		//UE_LOG(LogTemp, Warning, TEXT("[Chacra]Charging"));
 		CurrentChacra += ChargingVal;
 
 		// Set Widget

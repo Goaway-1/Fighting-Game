@@ -51,8 +51,8 @@ public:
 	UFUNCTION()
 	bool IsAlreadyOverlap(AActor* actor);
 
-	// ResetOverlapActors..
-	UFUNCTION()
+	/** ResetOverlapActors.. */
+	UFUNCTION(BlueprintCallable)
 	void ClearOverlapActors();
 
 	/** For Access from NWeapon*/
@@ -125,7 +125,10 @@ public:
 #pragma region AIRATTACK
 protected:
 	UPROPERTY(VisibleAnywhere, category = "Attack")
-	bool bAirAttackEnd = false;			// End Air Attack
+	bool bAirAttackEnd = false;			// End Current Air Attack  (현재 공중 공격이 끝났느지 여부)
+
+	UPROPERTY(VisibleAnywhere, category = "Attack")
+	bool bCanAirAttack = true;			// Can Air Attack Start? (다시 공중 공격을 할 수 있는지)
 #pragma endregion
 
 #pragma region NINJA_STAR
