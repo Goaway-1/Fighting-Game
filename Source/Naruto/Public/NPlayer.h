@@ -9,6 +9,8 @@ UENUM(BlueprintType)
 enum class EPlayerCondition : uint8 {
 	EPC_Idle			UMETA(DisplayName = "Idle"),
 	EPC_Hited			UMETA(DisplayName = "Hited"),
+	EPC_UpHited			UMETA(DisplayName = "UpHited"),
+	EPC_DownHited		UMETA(DisplayName = "DownHited"),
 	EPC_AirHited		UMETA(DisplayName = "AirHited"),
 	EPC_UpperHited		UMETA(DisplayName = "UpperHited"),
 	EPC_Parry			UMETA(DisplayName = "Parry"),
@@ -17,6 +19,8 @@ enum class EPlayerCondition : uint8 {
 	EPC_Dash			UMETA(DisplayName = "Dash"),
 	EPC_Jump			UMETA(DisplayName = "Jump"),
 	EPC_Attack			UMETA(DisplayName = "Attack"),
+	EPC_UpAttack		UMETA(DisplayName = "UpAttack"),
+	EPC_DownAttack		UMETA(DisplayName = "DownAttack"),
 	EPC_UpperAttack		UMETA(DisplayName = "UpperAttack"),
 	EPC_AirAttack		UMETA(DisplayName = "AirAttack"),
 	EPC_Grap			UMETA(DisplayName = "Grap"),	//¿‚±‚
@@ -194,7 +198,7 @@ protected:
 	class UChacraActorComponent* CurChacraComp;
 
 	float ChacraPressedTime;							// The time when Chacra pressed
-	const float ChacraChargingSec = 0.5f;				// The time it take to Charging
+	const float ChacraChargingSec = 0.4f;				// The time it take to Charging
 
 	bool bisCharing = false;							// Check Charging 
 
@@ -204,7 +208,6 @@ protected:
 public:
 	UFUNCTION()
 	FORCEINLINE UChacraActorComponent* GetCurChacraComp() { return CurChacraComp; }
-
 #pragma endregion
 
 #pragma region CHECK_ANOTHER_ACTOR
@@ -232,12 +235,6 @@ public:
 	FORCEINLINE UMontageManager* GetMontageManager() {return MontageManager;}
 #pragma endregion
 
-#pragma region HITED
-public:
-	UFUNCTION()
-	void IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt);
-#pragma endregion
-
 #pragma region BLOCK
 private:
 	const float BlockDegree = 0.5f;   // can block '-60 ~ 60 degree'
@@ -260,7 +257,7 @@ protected:
 	UPROPERTY()
 	FTimerHandle GravityHandle;		          // Set Default Gravity
 
-	const float ResetGravityTime = 0.5f;    // Reset Time..
+	const float ResetGravityTime = 0.7f;    // Reset Time..
 
 public:
 	/** Player Gravity ON */
@@ -304,11 +301,23 @@ protected:
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
 	class UHealthManager* HealthManager;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
+	class UDataTable* AttackDataTable;
+
+	FDamageValue* AttackData;
+
 	UFUNCTION()
-	void DecreasedHealth();						// if Hited
+	void DecreasedHealth(int8 DamageSize);						// if Hited
+
 public:
 	UFUNCTION()
 	FORCEINLINE UHealthManager* GetHealthManager() { return HealthManager; }
+
+	UFUNCTION()
+	void IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt);
+
+	UFUNCTION()
+	int GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt);
 #pragma endregion
 
 #pragma region WIDGET
@@ -325,7 +334,4 @@ public:
 	UPROPERTY(EditAnywhere, Category = "TestMode")
 	EPlayerCondition TestModePlayerCondition;
 #pragma endregion
-public:
-	int WeaponIdx = 0;
-
 };

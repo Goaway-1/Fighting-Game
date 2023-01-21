@@ -22,10 +22,10 @@ public:
 #pragma region HEALTH
 private:
 	/** Health */
-	const float MaxHealth = 100.f;
+	const int8 MaxHealth = 100;
 
 	UPROPERTY(Replicated, VisibleAnywhere, Category="Health")
-	float CurrentHealth = 100.f;
+	int8 CurrentHealth = 100;
 
 	UPROPERTY()
 	float HealthRatio = 0.f;
@@ -35,7 +35,7 @@ public:
 	FORCEINLINE void SetHealthRatio(){	HealthRatio = CurrentHealth / MaxHealth; }
 
 	UFUNCTION()
-	void SetDecreaseHealth(float val);			// Decrease Health & Return true if Health is under than 0
+	void SetDecreaseHealth(int8 val);			// Decrease Health & Return true if Health is under than 0
 
 	UFUNCTION()
 	bool GetIsDead();

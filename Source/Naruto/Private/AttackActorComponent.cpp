@@ -82,13 +82,13 @@ void UAttackActorComponent::Attack() {
 			if(ChacraCom->GetChacraCnt() == 1) {
 				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
 				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill1);
-				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 1.f, CurOwner->GetPlayerCondition());
+				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 0.7f, CurOwner->GetPlayerCondition());
 				ChacraCom->ResetChacraCnt();
 			}
 			else {
 				UE_LOG(LogTemp, Warning, TEXT("Chacra2 Attack"));
 				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill2);
-				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[1], 1.f, CurOwner->GetPlayerCondition());
+				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[1], 0.7f, CurOwner->GetPlayerCondition());
 				ChacraCom->ResetChacraCnt();
 			}
 		}
@@ -108,8 +108,14 @@ void UAttackActorComponent::Attack() {
 						UE_LOG(LogTemp, Warning, TEXT("Upper Attack!"));
 						CurOwner->SetPlayerCondition(EPlayerCondition::EPC_UpperAttack);
 					}
+					else {
+						CurOwner->SetPlayerCondition(EPlayerCondition::EPC_UpAttack);
+					}
 				}
-				else if (CurKeyUD == EKeyUpDown::EKUD_Down) CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+				else if (CurKeyUD == EKeyUpDown::EKUD_Down) {
+					CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
+					CurOwner->SetPlayerCondition(EPlayerCondition::EPC_DownAttack);
+				}
 				else CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().MT_Attacker, 1.f, CurOwner->GetPlayerCondition(), ComboCnt);
 			}
 		}

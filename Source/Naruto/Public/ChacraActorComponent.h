@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "AttackStruct.h"
 #include "Components/ActorComponent.h"
 #include "ChacraActorComponent.generated.h"
 
@@ -57,5 +58,23 @@ public:
 
 	UFUNCTION()
 	FORCEINLINE int8 GetChacraCnt() {return ChacraCnt;}
+#pragma endregion
+
+#pragma region PARTICLE
+protected:
+	UPROPERTY(EditDefaultsOnly, Category = "Particle")
+	FParticles ChacraParticles;
+
+	UPROPERTY()
+	class UParticleSystemComponent* CurParticle = nullptr;
+public:
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void SpawnCurParticle(UParticleSystem* NewParticle);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerDestroyCurParticle();
+
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiDestroyCurParticle();
 #pragma endregion
 };

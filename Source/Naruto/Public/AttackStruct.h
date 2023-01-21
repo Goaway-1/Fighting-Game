@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
 #include "CoreMinimal.h"
@@ -133,4 +131,53 @@ public:
 	/** Block Hited */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_BlockHited;
+};
+
+//공격 데미지 datatable
+USTRUCT(BlueprintType)
+struct FDamageValue : public FTableRowBase
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int Ak = 3;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	LastAk = 5;
+		
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	ExtensionAk = 5;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	ExtensionLastAk = 7;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	GrapAk = 6;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	AirAk = 3;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	AirLastAk = 5;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	SkillAk1 = 15;
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int	SkillAk2 = 25;
+};
+
+USTRUCT(Atomic, BlueprintType)
+struct FParticles 
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UParticleSystem* ChacraCharging;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UParticleSystem* ChacraActive1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class UParticleSystem* ChacraActive2;
 };

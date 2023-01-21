@@ -7,6 +7,7 @@
 #include "NCameraManager.h"
 #include "NGameMode.h"
 #include "NWeapon.h"
+#include "AttackStruct.h"
 #include "NGameInstance.h"
 #include "HealthManager.h"
 #include "Components/CapsuleComponent.h"
@@ -164,7 +165,9 @@ void ANPlayer::SetAnotherPlayer() {
 		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
 	}
 }
-FString ANPlayer::GetEnumToString(EPlayerCondition value){
+
+// 지울것
+FString ANPlayer::GetEnumToString(EPlayerCondition value){		
 	switch (value)
 	{
 	case EPlayerCondition::EPC_Idle:
@@ -226,7 +229,7 @@ void ANPlayer::MoveRight(float Value) {
 	AddMovementInput(UKismetMathLibrary::GetRightVector(Rot), Value);
 }
 bool ANPlayer::IsCanMove() {
-	if(IsPlayerCondition(EPlayerCondition::EPC_Dead) || IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Block) || IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
+	if(IsPlayerCondition(EPlayerCondition::EPC_Charge) || IsPlayerCondition(EPlayerCondition::EPC_Dead) || IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Block) || IsPlayerCondition(EPlayerCondition::EPC_Attack) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return false;
 	else return true;
 }
 void ANPlayer::Jump() {
@@ -274,11 +277,8 @@ void ANPlayer::SetWeapon() {
 		if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
 		if (CurrentWeapon) {
 			CurrentWeapon->SetOwner(this);
-			WeaponIdx = CurrentWeapon->SetWeaponRandom();
+			CurrentWeapon->SetWeaponRandom();
 			CurrentWeapon->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, WeaponAttachSocketName);
-
-			//SetMontage();
-			//GetMontageManager()->SetActionMontage(WeaponIdx);
 		}
 	}
 }
@@ -287,7 +287,7 @@ void ANPlayer::Attack() {
 
 	if(IsLocallyControlled()) CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
-void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt) {
+void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 	/** if blocking */
 	if (IsPlayerCondition(EPlayerCondition::EPC_Block) && AttackerCondition == EPlayerCondition::EPC_Attack) {
 		// Can Block -60 ~ 60 Degree
@@ -302,7 +302,7 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt) {
 	}
 	
 	/** Decreased Health & UI */
-	DecreasedHealth();		
+	DecreasedHealth(GetDamageValue(AttackerCondition, AttackCnt));
 	
 	/** Check Is Dead? */
 	if (GetHealthManager()->GetIsDead()) {
@@ -337,22 +337,21 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt) {
 		if (GetMovementComponent()->IsFalling()) {					/** 공중 공격 */
 			UE_LOG(LogTemp, Warning, TEXT("Air Vitcim!"));
 			SetPlayerCondition(EPlayerCondition::EPC_AirHited);
+			UAnimMontage* mon;
 
 			// Set ON Gravity & GO DOWN if Last Attack Hited
 			if(AttackCnt == 6) {
 				LaunchCharacter(GetActorUpVector() * - 1000.f,false,false);
 				SetGravity(1.f);
 
-				//Montage
-				UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictimEnd;
-				GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
+				mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictimEnd;
 			}
 			else {
 				SetGravity(0.f);
-
-				UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictim;
-				GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
+				mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictim;
 			}
+
+			GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
 		}
 		else if (AttackerCondition == EPlayerCondition::EPC_UpperAttack) {				/** 공중으로 날려! */
 			UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
@@ -363,8 +362,11 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt) {
 			LaunchCharacter(ForceVec, false, false);
 		}
 		else {
-			UE_LOG(LogTemp, Warning, TEXT("Just Vitcim!"));
-			UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+			UAnimMontage* mon;
+			if (AttackerCondition == EPlayerCondition::EPC_UpAttack) mon = AnotherPlayer->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Victim;
+			else if (AttackerCondition == EPlayerCondition::EPC_DownAttack) mon = AnotherPlayer->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Victim;
+			else mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+
 			GetMontageManager()->PlayNetworkMontage(mon, 1.f, EPlayerCondition::EPC_Hited, AttackCnt);
 		}
 
@@ -373,9 +375,23 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt) {
 		if (AttackCnt >= 2) TargetCamera->SetAttackView();
 	}
 }
-void ANPlayer::DecreasedHealth() {
-	// @TODO : 데미지 값 추가
-	GetHealthManager()->SetDecreaseHealth(1.f);
+int ANPlayer::GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt) {
+	if(!AttackData) AttackData = AttackDataTable->FindRow<FDamageValue>(FName("Value"), FString(""));
+
+	if (AttackerCondition == EPlayerCondition::EPC_Attack || AttackerCondition == EPlayerCondition::EPC_UpAttack || AttackerCondition == EPlayerCondition::EPC_DownAttack ||AttackerCondition == EPlayerCondition::EPC_UpperAttack || GetMovementComponent()->IsFalling()) {
+		if(AttackerCondition == EPlayerCondition::EPC_Attack) return (AttackCnt == 4) ? AttackData->LastAk : AttackData->Ak;
+		else if (AttackerCondition == EPlayerCondition::EPC_UpAttack || AttackerCondition == EPlayerCondition::EPC_DownAttack) return (AttackCnt == 5) ? AttackData->ExtensionLastAk : AttackData->ExtensionAk;
+		else if (GetMovementComponent()->IsFalling()) return (AttackCnt == 6) ? AttackData->AirLastAk : AttackData->AirAk;
+		else if (AttackerCondition == EPlayerCondition::EPC_UpperAttack) return AttackData->ExtensionLastAk;
+	}
+	else if (AttackerCondition == EPlayerCondition::EPC_Skill1)	return AttackData->SkillAk1;
+	else if (AttackerCondition == EPlayerCondition::EPC_Skill2) return AttackData->SkillAk2;
+	else if (AttackerCondition == EPlayerCondition::EPC_Grap) return AttackData->GrapAk;
+
+	return 0;
+}
+void ANPlayer::DecreasedHealth(int8 DamageSize) {
+	GetHealthManager()->SetDecreaseHealth(DamageSize);
 	GetCurAttackComp()->RotateToActor();
 
 	UpdateWidget(EWidgetState::EWS_Health);
@@ -415,11 +431,19 @@ bool ANPlayer::ServerSetPlayerCondition_Validate(EPlayerCondition NewCondition) 
 }
 void ANPlayer::StartChacra() {
 	ChacraPressedTime = FDateTime::Now().GetTicks();
-	SetPlayerCondition(EPlayerCondition::EPC_Charge);
 	bisCharing = false;
 }
 void ANPlayer::ChargingChacra() {
-	if (!IsPlayerCondition(EPlayerCondition::EPC_Charge)) {
+	if(IsPlayerCondition(EPlayerCondition::EPC_Idle) || IsPlayerCondition(EPlayerCondition::EPC_Charge)) {
+		SetPlayerCondition(EPlayerCondition::EPC_Charge);
+	}
+	else {
+		EndChacra();
+		return;
+	}
+	
+	if (GetCurChacraComp()->GetChacra() >= 100.f) {
+		bisCharing = true;
 		EndChacra();
 		return;
 	}
@@ -434,6 +458,7 @@ void ANPlayer::ChargingChacra() {
 void ANPlayer::EndChacra() {
 	/** Try to Set Chacra */
 	if(!bisCharing) GetCurChacraComp()->UseChacra();
+	else GetCurChacraComp()->ServerDestroyCurParticle();              //else 차크라 차징 끝나는 함수 호출
 
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 }

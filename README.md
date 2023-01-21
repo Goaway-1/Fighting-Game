@@ -3777,3 +3777,495 @@
   - 차크라 계수를 Widget에 띄우는데 많은 시행착오가 있었고, 덕분에 회피 계수는 쉽게 적용할 수 있었다.
     - 원인은 차크라의 값이 서버에 Replicated되지 않았기 때문이였기 때문이였다.
   
+## **Day_29**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">IsHited 매개변수 추가</span>
+  - 무기가 다른 플레이어와 Overlap되어 IsHited()메서드를 호출할때, 공격자의 상태와 콤보카운트를 넘겨준다.
+  - 이전 서버에서 얻어오다보니, 지연되는 문제가 발생하였기 때문이다.
+      
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NWeapon.cpp
+      void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
+        if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
+          ANPlayer* victim = Cast<ANPlayer>(OtherActor);
+          victim->IsHited(OwnPlayer->GetPlayerCondition(), OwnPlayer->GetCurAttackComp()->GetComboCnt());
+        }
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.h
+      public:
+        UFUNCTION()
+        void IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt);
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">차크라 대쉬 충돌 처리</span>
+  - <img src="Image/Gravity_EDIT.gif" height="300" title="Gravity_EDIT">
+  - 이전 클라이언트에서는 진행되지 않는 문제와 재사용에는 적용 안되는 문제들을 해결..
+  - 충돌 시 서버에서 한번에 두 플레이어 모두 그래비티를 설정하여 공중에 머물 수 있도록 수정한다. 
+    - 이전에는 각 플레이어가 따로 설정하였다. 현재도 완벽하지는 않은 해결방법이다.
+    - Client, Multi, Server 3곳 모두에서 진행하기 때문이다...
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::Tick(float DeltaTime) {
+        Super::Tick(DeltaTime);
+        /** Set Gravity.. */
+        UpdateGravity);
+      }
+      void ANPlayer::SetAllGravity(float val) {
+        GravityVal = val;
+        AnotherPlayer->GravityVal = val;
+        AnotherPlayer->isGravityDone = false;
+
+        ServerSetAllGravity();
+      }
+      void ANPlayer::MultiSetAllGravity_Implementation(float val) {
+        GravityVal = val;
+        AnotherPlayer->GravityVal = val;
+        isGravityDone = false;
+        AnotherPlayer->isGravityDone = false;
+
+        if (GravityVal != 1.f) {
+          FVector TmpVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100);
+          SetActorLocation(TmpVec);
+        }
+      }
+      bool ANPlayer::MultiSetAllGravity_Validate(float val) {
+        return true;
+      }
+      void ANPlayer::ServerSetAllGravity_Implementation(float val) {
+        MultiSetAllGravity(val);
+      }
+      bool ANPlayer::ServerSetAllGravity_Validate(float val) {
+        return true;
+      }
+      void ANPlayer::EndGravity() {
+        GravityVal = 1.f;
+        isGravityDone = false;
+      }
+      void ANPlayer::UpdateGravity() {
+        if (!isGravityDone && GravityVal != GetCharacterMovement()->GravityScale) {
+          GetCharacterMovement()->GravityScale = GravityVal;
+          SetPlayerCondition(EPlayerCondition::EPC_Idle);
+          isGravityDone = true;
+
+          if (GravityVal != 1.f) {
+            GetMovementComponent()->StopMovementImmediately();
+            GetWorld()->GetTimerManager().ClearTimer(GravityHandle);
+            GetWorld()->GetTimerManager().SetTimer(GravityHandle, this, &ANPlayer::EndGravity, 2.0f, false);
+          }
+        }
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.h
+      public:
+      	/** Grvaity Value.. */
+        float GravityVal = 1.f;
+        bool isGravityDone = false;
+
+        UFUNCTION()
+        void SetAllGravity(float val = 0);						// Gravity ON
+
+        UFUNCTION(NetMulticast, Reliable, WithValidation)
+        void MultiSetAllGravity(float val = 0);
+
+        UFUNCTION(Server, Reliable, WithValidation)
+        void ServerSetAllGravity(float val = 0);         
+
+        UFUNCTION()
+        void EndGravity();											// Gravity OFF
+
+	      void UpdateGravity();										// for Tick...
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">공중 공격</span>
+  - <img src="Image/AirAttack_EDIT.gif" height="300" title="AirAttack_EDIT">
+  - 공중에서 공격할때의 Gravity를 조정하는 __함수(SetGravity)를__ 3개만들어서 공중에 머물 수 있도록하고, 공중 공격의 횟수가 모두 종료되면 바닦에 떨어진다.
+  - 바닥에 닿았을때, 다시 공중 공격 가능하도록 수정하고, 공격을 회피하면 다시 공격할 수 없다.
+    - 매 Tick마다 플레이어가 공중에 떠 있는지 여부를 판단하고, 바닥에 닿으면 'bCanAirAttack'를 true로 전환 후 다시 공중 공격이 가능하도록 수정.
+    - 공격 도중 공격이 맞지 않거나, 공중에서의 마지막 공격을 한다면,  'bAirAttackEnd'를 false로 전환하여 현재 공중 공격의 마무리를 의미하도록 한다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::SetGravity(float val) {
+        GravityVal = val;
+        isGravityDone = false;
+
+        ServerSetGravity(val);
+      }
+      void ANPlayer::MultiSetGravity_Implementation(float val) {
+        GravityVal = val;
+        isGravityDone = false;
+      }
+      void ANPlayer::ServerSetGravity_Implementation(float val) {
+        MultiSetGravity(val);
+      }
+      ```
+      ```cpp
+      //AttackActorComponent.cpp
+      void UAttackActorComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) {
+        // Air Attack와 관련된..
+        bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
+        if (!isFalling) {
+          bAirAttackEnd = false;	
+          bCanAirAttack = true;
+        }
+      }
+      void UAttackActorComponent::AttackInputCheck() {
+        bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
+        if (isFalling) {
+          bCanAirAttack = false;
+          if (OverlapActors.Num() <= 0 || ComboCnt == 7) {		/** Last Attack & Not Hit then fall Down.. */
+            UE_LOG(LogTemp,Warning, TEXT("[InputCheck] %d %d"), OverlapActors.Num(), ComboCnt);
+            bAirAttackEnd = true;
+            bIsAttackCheck = false;
+            bAttacking = false;
+            CurOwner->SetGravity(1.f);
+            EndAttack(); 
+          }
+            else if (bIsAttackCheck) {								/** Continue Fly Attack.. */
+            SetComoboCnt(ComboCnt + 1);
+            bIsAttackCheck = false;
+            Attack();
+          }
+        }
+        else if (bIsAttackCheck) {
+          SetComoboCnt(ComboCnt + 1);
+          if (CurOwner->GetMontageManager()->GetActionMontage().splitIdx == ComboCnt) CurKeyUD = TmpKeyUD;
+          bIsAttackCheck = false;
+          Attack();
+        }
+        ClearOverlapActors();
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.h
+      public:
+      	/** Player Gravity ON */
+        UFUNCTION()
+        void SetGravity(float val = 0);						
+
+        UFUNCTION(NetMulticast, Reliable, WithValidation)
+        void MultiSetGravity(float val = 0);						
+
+        UFUNCTION(Server, Reliable, WithValidation)
+        void ServerSetGravity(float val = 0);		
+      ```
+      ```cpp
+      //AttackActorComponent.h
+      protected:
+        UPROPERTY(VisibleAnywhere, category = "Attack")
+        bool bAirAttackEnd = false;			// End Current Air Attack  (현재 공중 공격이 끝났느지 여부)
+
+        UPROPERTY(VisibleAnywhere, category = "Attack")
+        bool bCanAirAttack = true;			// Can Air Attack Start? (다시 공중 공격을 할 수 있는지)
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">공중 파이널 어택</span>
+  - <img src="Image/AirAttack_Last.gif" height="300" title="AirAttack_Last">
+  - 공중에서의 마지막 공격은 상대방을 하단에 찍어서 처리한다.
+    - 현재는 임의의 수를 직접 입력했지만 AttackStruct에 추가해야한다.
+  - 대쉬하면 공중 공격에 대한 것이 리셋되도록 설정
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //AttackActorComponent.cpp
+      void UAttackActorComponent::EndAttack() {
+        if (ComboCnt == 6) CurOwner->SetGravity(1.f);
+        ...
+      }
+      ```
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int16 AttackCnt) {
+        ...
+        if (AttackerCondition == EPlayerCondition::EPC_Skill1 || AttackerCondition == EPlayerCondition::EPC_Skill2) {
+          ..
+        }
+        else  {
+          if (GetMovementComponent()->IsFalling()) {					/** 공중 공격 */
+            UE_LOG(LogTemp, Warning, TEXT("Air Vitcim!"));
+            SetPlayerCondition(EPlayerCondition::EPC_AirHited);
+
+            // Set ON Gravity & GO DOWN if Last Attack Hited
+            if(AttackCnt == 6) {
+              LaunchCharacter(GetActorUpVector() * - 1000.f,false,false);
+              SetGravity(1.f);
+
+              //Montage
+              UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictimEnd;
+              GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
+            }
+          }
+        }
+      }
+      ```
+      </details>
+
+> **<h3>Realization</h3>**  
+  - 이전 공중 공격 중 무시되던 문제는 "AutoChacraDash"이후 "StopChacraDash"가 타이머로 실행되는데, 부딪치는 경우에 이 타이머를 리셋해주지 않아서 생기는 문제였다.
+    - StopNetworkMontage()메서드로 인해서 공격이 중지되던 것...
+
+## **Day_30**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">무기에 따른 몽타주 관리</span>
+  - <img src="Image/SetMongtageByWeapon.png" height="300" title="SetMongtageByWeapon">
+  - 위 그림과 같이 PlayerAnimInstacne에서 무기에 따른 애니메이션을 설정하는 함수 SetActionMontage()를 호출한다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //MontageManager.cpp
+      void UMontageManager::SetActionMontage(bool btype) {
+        if(ActionMontages.Num() == 2) {
+          ActionMontage = (btype == true) ? ActionMontages[0] : ActionMontages[1];
+        }
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //MontageManager.h
+      private:
+	      /** Set Montage by Weapon type.. */
+        UFUNCTION(BlueprintCallable)
+        void SetActionMontage(bool btype);
+      ```
+      </details>
+  
+- ## <span style = "color:yellow;">공격별 데미지 차이</span>
+  - 공격 타입별 데미지에 있어 차이를 두기 위해서, DataTable을 제작하여 타입별 데미지를 추가하였다.
+  - GetDamageValue()함수를 통해서 __상대의 'PlayerCondition'과 'AttackCnt'에__ 따른 데미지를 DataTable에서 찾아 반환하고, 이 값을 현재 체력에서 빼준다.
+    - AttackStruct클래스에 "FDamageValue"라는 이름의 구조체에서 타입별 데미지를 관리한다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //ANPlayer.cpp            
+      void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
+        /** Decreased Health & UI */
+        DecreasedHealth(GetDamageValue(AttackerCondition, AttackCnt));
+        ...
+      }
+      int ANPlayer::GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt) {
+        if(!AttackData) AttackData = AttackDataTable->FindRow<FDamageValue>(FName("Value"), FString(""));
+
+        if (AttackerCondition == EPlayerCondition::EPC_Attack || AttackerCondition == EPlayerCondition::EPC_UpAttack || AttackerCondition == EPlayerCondition::EPC_DownAttack ||AttackerCondition == EPlayerCondition::EPC_UpperAttack || GetMovementComponent()->IsFalling()) {
+          if(AttackerCondition == EPlayerCondition::EPC_Attack) return (AttackCnt == 4) ? AttackData->LastAk : AttackData->Ak;
+          else if (AttackerCondition == EPlayerCondition::EPC_UpAttack || AttackerCondition == EPlayerCondition::EPC_DownAttack) return (AttackCnt == 5) ? AttackData->ExtensionLastAk : AttackData->ExtensionAk;
+          else if (GetMovementComponent()->IsFalling()) return (AttackCnt == 6) ? AttackData->AirLastAk : AttackData->AirAk;
+          else if (AttackerCondition == EPlayerCondition::EPC_UpperAttack) return AttackData->ExtensionLastAk;
+        }
+        else if (AttackerCondition == EPlayerCondition::EPC_Skill1)	return AttackData->SkillAk1;
+        else if (AttackerCondition == EPlayerCondition::EPC_Skill2) return AttackData->SkillAk2;
+        else if (AttackerCondition == EPlayerCondition::EPC_Grap) return AttackData->GrapAk;
+
+        return 0;
+      }
+      void ANPlayer::DecreasedHealth(int8 DamageSize) {
+        GetHealthManager()->SetDecreaseHealth(DamageSize);
+        ...
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayer.h
+      protected:
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
+        class UDataTable* AttackDataTable;
+
+        FDamageValue* AttackData;
+
+        UFUNCTION()
+        void DecreasedHealth(int8 DamageSize);						// if Hited
+      public:
+      	UFUNCTION()
+        void IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt);
+
+        UFUNCTION()
+        int GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt);
+      ```
+      ```cpp
+      //AttackStruct.h
+      USTRUCT(BlueprintType)
+      struct FDamageValue : public FTableRowBase
+      {
+        GENERATED_BODY()
+      public:
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int Ak = 3;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	LastAk = 5;
+          
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	ExtensionAk = 5;
+        
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	ExtensionLastAk = 7;
+        
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	GrapAk = 6;
+        
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	AirAk = 3;
+        
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	AirLastAk = 5;
+        
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	SkillAk1 = 15;
+        
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        int	SkillAk2 = 25;
+      };
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">차크라 파티클 추가</span>
+  - <img src="Image/ChacraParticle.gif" height="300" title="ChacraParticle">
+  - 차크라 차징시 : 현재 플레이어 위치에서 파트클이 생성
+  - 차크라 사용시 : 플레이어 메쉬(Mesh)의 특정 소켓에 파티클이 생성
+  - 위 파티클 모두 한번에 하나씩 사용되기 때문에, 'CurParticle' 객체가 이미 존재하면 삭제하고 새로운 파티클을 생성한다.
+    - Multi를 통해서 생성되며, Server와 Mutli를 통해서 파티클을 삭제한다.
+    - 새로운 구조체 "FParticles"를 생성하여 관리한다.
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      //ChacraActorComponent.cpp
+      void UChacraActorComponent::UseChacra_Implementation() {
+        if ((ChacraCnt == 0 && CurrentChacra >= 30.f) || (ChacraCnt == 1 && CurrentChacra >= 60.f)) {
+          ...
+          if (ChacraCnt++ == 0) SpawnCurParticle(ChacraParticles.ChacraActive1);
+          else SpawnCurParticle(ChacraParticles.ChacraActive2);
+        }
+      }
+      void UChacraActorComponent::ResetChacraCnt_Implementation(bool bIsUsed) {
+        ...
+        if (bIsUsed && ChacraCnt > 0) {
+          ...
+          ServerDestroyCurParticle();
+        }
+      }
+      void UChacraActorComponent::ChargingChacra_Implementation() {
+        if (CurrentChacra < MaxChacra) {
+          ...
+          SpawnCurParticle(ChacraParticles.ChacraCharging);
+        }
+      }
+      void UChacraActorComponent::SpawnCurParticle_Implementation(UParticleSystem* NewParticle) {
+        if (CurParticle == nullptr) {
+          if(NewParticle != ChacraParticles.ChacraCharging) CurParticle = UGameplayStatics::SpawnEmitterAttached(NewParticle, OwnPlayer->GetMesh(),FName(TEXT("Chacra")),FVector::Zero(),FRotator(-90.f,0.f,0.f), EAttachLocation::SnapToTarget);
+          else CurParticle = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), NewParticle, GetOwner()->GetActorLocation(), FRotator(0.f), true);
+        }
+      }
+      bool UChacraActorComponent::SpawnCurParticle_Validate(UParticleSystem* NewParticle) {
+        return true;
+      }
+      void UChacraActorComponent::ServerDestroyCurParticle_Implementation() {
+        MultiDestroyCurParticle();
+      }
+      bool UChacraActorComponent::ServerDestroyCurParticle_Validate() {
+        return true;
+      }
+      void UChacraActorComponent::MultiDestroyCurParticle_Implementation() {
+        if (CurParticle) {
+          CurParticle->DestroyComponent();
+          CurParticle = nullptr;
+        }
+      }
+      bool UChacraActorComponent::MultiDestroyCurParticle_Validate() {
+        return true;
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //ChacraActorComponent.h
+      protected:
+        UPROPERTY(EditDefaultsOnly, Category = "Particle")
+        FParticles ChacraParticles;
+
+        UPROPERTY()
+        class UParticleSystemComponent* CurParticle = nullptr;
+      public:
+        UFUNCTION(NetMulticast, Reliable, WithValidation)
+        void SpawnCurParticle(UParticleSystem* NewParticle);
+
+        UFUNCTION(Server, Reliable, WithValidation)
+        void ServerDestroyCurParticle();
+
+        UFUNCTION(NetMulticast, Reliable, WithValidation)
+        void MultiDestroyCurParticle();
+      ```
+      ```cpp
+      //AttackStruct.h
+      USTRUCT(Atomic, BlueprintType)
+      struct FParticles 
+      {
+        GENERATED_BODY()
+      public:
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        class UParticleSystem* ChacraCharging;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        class UParticleSystem* ChacraActive1;
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite)
+        class UParticleSystem* ChacraActive2;
+      };
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">잡다한 것</span>
+  1. 차크라 시전에도 차징 애니메이션 실행되는 오류 해결
+    - __PlayerCondition의__ 변경을 'StartChacra()'에서 진행했기 때문으로, 'ChargingChacra()'로 이전
+
+      <summary>Cpp File</summary>
+
+      ```cpp
+      void ANPlayer::StartChacra() {
+        ChacraPressedTime = FDateTime::Now().GetTicks();
+        bisCharing = false;
+      }
+      void ANPlayer::ChargingChacra() {
+        if(IsPlayerCondition(EPlayerCondition::EPC_Idle) || IsPlayerCondition(EPlayerCondition::EPC_Charge)) {
+          SetPlayerCondition(EPlayerCondition::EPC_Charge);
+        }
+        else {
+          EndChacra();
+          return;
+        }
+        ...
+      }
+      ```
+      </details>
+
+> **<h3>Realization</h3>**  
+  - 고지가 코앞이다.

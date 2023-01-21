@@ -23,15 +23,14 @@ void ANWeapon::BeginPlay(){
 
 	SetCollisionONOFF(false);
 }
-int ANWeapon::SetWeaponRandom() {
+void ANWeapon::SetWeaponRandom() {
 	/** Set AttackController */
 	OwnPlayer = Cast<ANPlayer>(GetOwner());
 	AttackController = OwnPlayer->GetCurAttackComp();
 
-	int WeaponTmp = 0;
 	if (WeaponMeshType.Num() >= 2) {
 		UE_LOG(LogTemp, Warning, TEXT("%s SetWeaponRandom is Called!"),*GetOwner()->GetName());
-		WeaponTmp = FMath::RandRange(0, 1);
+		int WeaponTmp = FMath::RandRange(0, 1);
 		if (WeaponTmp == 0) {
 			MeshComp->SetStaticMesh(WeaponMeshType[WeaponTmp]);
 			WeaponType = EWeaponType::EWT_Sword;
@@ -41,7 +40,6 @@ int ANWeapon::SetWeaponRandom() {
 			WeaponType = EWeaponType::EWT_Blade;
 		}
 	}
-	return WeaponTmp;
 }
 void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult) {
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {

@@ -38,9 +38,7 @@ public:
 
 	UFUNCTION()
 	void StopNetworkMontage();
-
 private:
-
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
 	void MultiPlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx = 0);
 
@@ -53,20 +51,15 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerStopMontage();
 
+	/** Set Montage by Weapon type.. */
+	UFUNCTION(BlueprintCallable)
+	void SetActionMontage(bool btype);
+
 protected:
 	/** Montage List */
 	UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
 	TArray<FAttackMontageStruct> ActionMontages;
 
-	UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
+	UPROPERTY()
 	FAttackMontageStruct ActionMontage;
-
-//public:
-//	UFUNCTION()
-//	void SetActionMontage(int idx);
-//
-//
-//	//UFUNCTION(Client, Reliable)
-//	UFUNCTION(Server, Reliable, WithValidation)
-//	void ClSetActionMontage(int idx);
 };

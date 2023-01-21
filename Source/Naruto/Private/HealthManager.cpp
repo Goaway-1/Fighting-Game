@@ -15,7 +15,7 @@ void UHealthManager::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 }
-void UHealthManager::SetDecreaseHealth(float val) {
+void UHealthManager::SetDecreaseHealth(int8 val) {
 	CurrentHealth -= val;
 	SetHealthRatio();
 	//UE_LOG(LogTemp, Warning, TEXT("Hited %f damage -> %f"), val, CurrentHealth);

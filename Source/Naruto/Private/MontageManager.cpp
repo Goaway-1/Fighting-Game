@@ -1,10 +1,10 @@
 #include "MontageManager.h"
 #include "AttackStruct.h"
+#include "NWeapon.h"
 #include "Net/UnrealNetwork.h"
 
 UMontageManager::UMontageManager(){
 	PrimaryComponentTick.bCanEverTick = false;
-
 }
 void UMontageManager::BeginPlay(){
 	Super::BeginPlay();
@@ -62,14 +62,8 @@ void UMontageManager::ServerStopMontage_Implementation() {
 bool UMontageManager::ServerStopMontage_Validate(){
 	return true;
 }
-//void UMontageManager::SetActionMontage(int idx) {
-//	UE_LOG(LogTemp,Warning,TEXT("SetActionMontage %d"), idx);
-//	if(ActionMontages.Num() == 2) ActionMontage = ActionMontages[idx];
-//	//ClSetActionMontage(idx);
-//}
-//void UMontageManager::ClSetActionMontage_Implementation(int idx) {
-//	if (ActionMontages.Num() == 2) ActionMontage = ActionMontages[idx];
-//}
-//bool UMontageManager::ClSetActionMontage_Validate(int idx) {
-//	return true;
-//}
+void UMontageManager::SetActionMontage(bool btype) {
+	if(ActionMontages.Num() == 2) {
+		ActionMontage = (btype == true) ? ActionMontages[0] : ActionMontages[1];
+	}
+}

@@ -49,7 +49,7 @@ public:
 	FORCEINLINE EWeaponType GetWeaponType() { return WeaponType; }
 
 	UFUNCTION()
-	int SetWeaponRandom();
+	void SetWeaponRandom();
 
 	UFUNCTION(BlueprintCallable)
 	void SetCollisionONOFF(bool isSet);
