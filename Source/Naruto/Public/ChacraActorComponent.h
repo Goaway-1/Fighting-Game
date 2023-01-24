@@ -5,6 +5,14 @@
 #include "Components/ActorComponent.h"
 #include "ChacraActorComponent.generated.h"
 
+UENUM(BlueprintType)
+enum class EChacraActions : uint8 {
+	ECA_None			UMETA(DisplayName = "None"),
+	ECA_Dash			UMETA(DisplayName = "Dash"),
+	ECA_NinjaStar		UMETA(DisplayName = "NinjaStar"),
+	ECA_Skill1			UMETA(DisplayName = "Skill1"),
+	ECA_Skill2			UMETA(DisplayName = "Skill2")
+};
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class NARUTO_API UChacraActorComponent : public UActorComponent
@@ -39,6 +47,10 @@ private:
 	UPROPERTY(Replicated, VisibleAnywhere, Category = "Chacra")
 	float CurrentChacra = 100.f;
 
+	/** Consumption by type */
+	const float NormalChacraConsumption = 8.f;
+	const float SkillChacraConsumption = 15.f;
+
 public:
 	FORCEINLINE void SetChacraRatio() { ChacraRatio = CurrentChacra / MaxChacra; }		
 
@@ -54,7 +66,7 @@ public:
 	void UseChacra();				// Decressed Chacra
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ResetChacraCnt(bool bIsUsed = true);
+	void ResetChacraCnt(EChacraActions InputChacraActions, bool bIsUsed = true);
 
 	UFUNCTION()
 	FORCEINLINE int8 GetChacraCnt() {return ChacraCnt;}
@@ -77,4 +89,8 @@ public:
 	UFUNCTION(NetMulticast, Reliable, WithValidation)
 	void MultiDestroyCurParticle();
 #pragma endregion
+
+protected:
+	UPROPERTY(EditDefaultsOnly, Category="Sound")
+	class USoundBase* ChacraActive_Sound;
 };

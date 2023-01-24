@@ -14,11 +14,12 @@ class NARUTO_API UNGameInstance : public UGameInstance
 public:
     UNGameInstance();
 
-    virtual void Init() override;
-
-//    FAttackMontageStruct* GetMontageData(int32 idx);
-//
-//private:
-//    UPROPERTY()
-//    class UDataTable* MontageTable;
+//MODE...
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameInstance Settings")
+	float RoundTime;
+	
+	// 승리해야하는 라운드..
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameInstance Settings")
+	int NumRounds;
 };

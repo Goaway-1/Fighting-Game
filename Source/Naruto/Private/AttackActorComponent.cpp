@@ -6,11 +6,13 @@
 #include "NPlayerController.h"
 #include "MontageManager.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Kismet/GameplayStatics.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Net/UnrealNetwork.h"
 
 UAttackActorComponent::UAttackActorComponent() {
 	PrimaryComponentTick.bCanEverTick = true;
+
 	SetIsReplicated(true);
 }
 void UAttackActorComponent::BeginPlay() {
@@ -55,12 +57,12 @@ void UAttackActorComponent::Attack() {
 	/** Rotate to another Actor.. (Network & MutiCast) 	*/
 	RotateToActor();
 
-	/** »óÅÂ¿¡ µû¸¥ ¾×¼Ç.. */
+	/** Start Attack by Type */
 	if(CurOwner->GetMontageManager()){
 		UChacraActorComponent* ChacraCom = CurOwner->GetCurChacraComp();
 		bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 
-		if (isFalling && !bAirAttackEnd){/** °øÁß °ø°Ý */
+		if (isFalling && !bAirAttackEnd){/** ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ */
 			CurOwner->SetPlayerCondition(EPlayerCondition::EPC_AirAttack);
 			if (!CurOwner->GetMontageManager()->IsMontagePlaying(CurOwner->GetMontageManager()->GetActionMontage().MT_JumpAttack)) {
 				if (!bCanAirAttack) return;
@@ -83,13 +85,13 @@ void UAttackActorComponent::Attack() {
 				UE_LOG(LogTemp, Warning, TEXT("Chacra1 Attack"));
 				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill1);
 				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[0], 0.7f, CurOwner->GetPlayerCondition());
-				ChacraCom->ResetChacraCnt();
+				ChacraCom->ResetChacraCnt(EChacraActions::ECA_Skill1);
 			}
 			else {
 				UE_LOG(LogTemp, Warning, TEXT("Chacra2 Attack"));
 				CurOwner->SetPlayerCondition(EPlayerCondition::EPC_Skill2);
 				CurOwner->GetMontageManager()->PlayNetworkMontage(CurOwner->GetMontageManager()->GetActionMontage().ChacraAttack.MTChacra_Attacker[1], 0.7f, CurOwner->GetPlayerCondition());
-				ChacraCom->ResetChacraCnt();
+				ChacraCom->ResetChacraCnt(EChacraActions::ECA_Skill2);
 			}
 		}
 		else {	
@@ -229,6 +231,9 @@ void UAttackActorComponent::ThrowNinjaStar(bool bIsChacra) {
 		FRotator Rot = UKismetMathLibrary::FindLookAtRotation(SpawnVec, CurOwner->GetAnotherLocation());
 		NinjaStar = GetWorld()->SpawnActor<ANinjaStar>(NinjaStarClass, SpawnVec, Rot, SpawnParams);
 		NinjaStar->InitSetting(CurOwner->GetAnotherPlayer(), bIsChacra);
+
+		/** Play Sound */
+		if(NinjaStar_Sound) UGameplayStatics::PlaySound2D(this, NinjaStar_Sound);
 
 		/** Set Timer */
 		GetWorld()->GetTimerManager().ClearTimer(NinjaStarHandle);

@@ -71,4 +71,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void SetWidget(const EWidgetState State);								// Some Player State Changed..
 #pragma endregion
+
+	// @TODO : GameMODe 테스트중
+public:
+	UPROPERTY()
+	class UTextBlock* MiddleScreenText;
+
+	UFUNCTION()
+	void SetStartGame();
 };

@@ -23,10 +23,10 @@ enum class EPlayerCondition : uint8 {
 	EPC_DownAttack		UMETA(DisplayName = "DownAttack"),
 	EPC_UpperAttack		UMETA(DisplayName = "UpperAttack"),
 	EPC_AirAttack		UMETA(DisplayName = "AirAttack"),
-	EPC_Grap			UMETA(DisplayName = "Grap"),	//Àâ±â
+	EPC_Grap			UMETA(DisplayName = "Grap"),	
 	EPC_Skill1			UMETA(DisplayName = "Skill1"),
 	EPC_Skill2			UMETA(DisplayName = "Skill2"),
-	EPC_CantMove		UMETA(DisplayName = "CantMove"),	//CutScene ½ÇÇàÁß¿¡´Â ¿òÁ÷ÀÏ ¼ö ¾øÀ½
+	EPC_CantMove		UMETA(DisplayName = "CantMove"),	//CutScene 
 	EPC_Dead			UMETA(DisplayName = "Dead")	
 };
 
@@ -66,7 +66,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
 
-	// @TODO : ¿À·ù ¹æÁö¸¦ À§ÇÑ ÀÓ½Ã¹æÆíÀÌ±â¿¡ ¼öÁ¤ÇÊ¿ä
+	// @TODO : ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ó½Ã¹ï¿½ï¿½ï¿½ï¿½Ì±â¿¡ ï¿½ï¿½ï¿½ï¿½ï¿½Ê¿ï¿½
 	//UFUNCTION(BlueprintCallable)
 	UFUNCTION(BlueprintCallable,Client, Reliable)
 	void SetPlayerCondition(EPlayerCondition NewCondition);		
@@ -151,6 +151,9 @@ protected:
 
 	UPROPERTY()
 	FTimerHandle SideStepHandle;
+
+	UPROPERTY(EditDefaultsOnly, Category = "SideStep | Particle")
+	class UParticleSystem* SideStepParticle = nullptr;    // Particle.. 
 
 	UFUNCTION()
 	void SideStep();

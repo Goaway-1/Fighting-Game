@@ -45,7 +45,7 @@ void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
 		AttackController->SetOverlapActors(OtherActor);
 
-		// @TODO : set hited Val, °ø°ÝÀÚ »óÅÂ, Ä«¿îÆ®, 
+		// @TODO : set hited Val, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½, Ä«ï¿½ï¿½Æ®, 
 		UE_LOG(LogTemp,Warning,TEXT("Overlap %s %d"), *OwnPlayer->GetEnumToString(OwnPlayer->GetPlayerCondition()), OwnPlayer->GetCurAttackComp()->GetComboCnt());
 		ANPlayer* victim = Cast<ANPlayer>(OtherActor);
 		victim->IsHited(OwnPlayer->GetPlayerCondition(), OwnPlayer->GetCurAttackComp()->GetComboCnt());

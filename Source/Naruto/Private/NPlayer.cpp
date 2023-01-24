@@ -103,7 +103,7 @@ void ANPlayer::PossessedBy(AController* NewController) {
 void ANPlayer::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	// Áö¿ï°Å¾ä : °­Á¦·Î »óÅÂ ¸¸µé¾úÀ½
+	// ï¿½ï¿½ï¿½ï¿½Å¾ï¿½ : ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	if (bTestMode) {
 		SetPlayerCondition(TestModePlayerCondition);
 		return;
@@ -166,7 +166,7 @@ void ANPlayer::SetAnotherPlayer() {
 	}
 }
 
-// Áö¿ï°Í
+// delete...
 FString ANPlayer::GetEnumToString(EPlayerCondition value){		
 	switch (value)
 	{
@@ -334,8 +334,7 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 		AnotherPlayer->GetCurAttackComp()->bGrapHited = true;
 	}
 	else  {
-		if (GetMovementComponent()->IsFalling()) {					/** °øÁß °ø°Ý */
-			UE_LOG(LogTemp, Warning, TEXT("Air Vitcim!"));
+		if (GetMovementComponent()->IsFalling()) {
 			SetPlayerCondition(EPlayerCondition::EPC_AirHited);
 			UAnimMontage* mon;
 
@@ -343,17 +342,17 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 			if(AttackCnt == 6) {
 				LaunchCharacter(GetActorUpVector() * - 1000.f,false,false);
 				SetGravity(1.f);
-
 				mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictimEnd;
 			}
 			else {
+				LaunchCharacter(GetActorForwardVector() * -100.f, false, false);
 				SetGravity(0.f);
 				mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictim;
 			}
 
 			GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
 		}
-		else if (AttackerCondition == EPlayerCondition::EPC_UpperAttack) {				/** °øÁßÀ¸·Î ³¯·Á! */
+		else if (AttackerCondition == EPlayerCondition::EPC_UpperAttack) {				/** ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½! */
 			UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
 			SetPlayerCondition(EPlayerCondition::EPC_UpperHited);
 
@@ -448,6 +447,8 @@ void ANPlayer::ChargingChacra() {
 		return;
 	}
 
+	UE_LOG(LogTemp,Warning,TEXT("Is Working"));
+
 	/** ChacraCharging in few Seconds */
 	int64 HoldingTime = ChacraPressedTime / 10000;
 	if (HoldingTime >= ChacraChargingSec) {
@@ -456,9 +457,8 @@ void ANPlayer::ChargingChacra() {
 	}
 }
 void ANPlayer::EndChacra() {
-	/** Try to Set Chacra */
 	if(!bisCharing) GetCurChacraComp()->UseChacra();
-	else GetCurChacraComp()->ServerDestroyCurParticle();              //else Â÷Å©¶ó Â÷Â¡ ³¡³ª´Â ÇÔ¼ö È£Ãâ
+	else GetCurChacraComp()->ServerDestroyCurParticle();              //else ï¿½ï¿½Å©ï¿½ï¿½ ï¿½ï¿½Â¡ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ô¼ï¿½ È£ï¿½ï¿½
 
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 }
@@ -494,7 +494,7 @@ void ANPlayer::ChacraDash() {
 		UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
 		
 		SetPlayerCondition(EPlayerCondition::EPC_Dash);
-		CurChacraComp->ResetChacraCnt();
+		CurChacraComp->ResetChacraCnt(EChacraActions::ECA_Dash);
 		CurAttackComp->ResetAll();
 
 		// Animation
@@ -525,7 +525,7 @@ void ANPlayer::AutoChacraDash(float DeltaTime) {
 	}
 }
 void ANPlayer::StopChacraDash() {
-	GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);				//Å¸ÀÌ¸Ó ÃÊ±âÈ­
+	GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);				//Å¸ï¿½Ì¸ï¿½ ï¿½Ê±ï¿½È­
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 	GetMontageManager()->StopNetworkMontage();
 
@@ -553,6 +553,13 @@ void ANPlayer::SideStep() {
 		SetActorRotation(RotateVal);
 		ClientSideStep(RotateVal);
 		SideStepCnt--;
+		
+		// Particle & Reset Chacra..
+		if(SideStepParticle) {
+			GetCurChacraComp()->ResetChacraCnt(EChacraActions::ECA_None,false);
+			GetCurChacraComp()->ServerDestroyCurParticle();
+			GetCurChacraComp()->SpawnCurParticle(SideStepParticle);
+		}
 
 		//Update Widget
 		UpdateWidget(EWidgetState::EWS_Switch);
@@ -649,7 +656,7 @@ void ANPlayer::UpdateGravity() {
 void ANPlayer::ThrowStar() {
 	bool bIsChacraThrow = false;
 	if (GetCurChacraComp()->GetChacraCnt() >= 1) {
-		GetCurChacraComp()->ResetChacraCnt();
+		GetCurChacraComp()->ResetChacraCnt(EChacraActions::ECA_NinjaStar);
 		bIsChacraThrow = true;
 	}
 	CurAttackComp->ThrowNinjaStar(bIsChacraThrow);

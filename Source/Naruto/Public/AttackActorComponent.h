@@ -60,7 +60,7 @@ public:
 	FORCEINLINE int16 GetComboCnt() { return ComboCnt; }
 
 	/** Controll ComboCnt 
-	* @TODO : ¿À·ù ¹æÁö¸¦ À§ÇÑ ÀÓ½Ã¹æÆíÀÌ±â¿¡ ¼öÁ¤ÇÊ¿ä
+	* @TODO : ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½Ó½Ã¹ï¿½ï¿½ï¿½ï¿½Ì±â¿¡ ï¿½ï¿½ï¿½ï¿½ï¿½Ê¿ï¿½
 	*/
 	UFUNCTION()
 	void SetComoboCnt(int16 cnt);		
@@ -125,10 +125,10 @@ public:
 #pragma region AIRATTACK
 protected:
 	UPROPERTY(VisibleAnywhere, category = "Attack")
-	bool bAirAttackEnd = false;			// End Current Air Attack  (ÇöÀç °øÁß °ø°ÝÀÌ ³¡³µ´ÀÁö ¿©ºÎ)
+	bool bAirAttackEnd = false;			// End Current Air Attack  (ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½)
 
 	UPROPERTY(VisibleAnywhere, category = "Attack")
-	bool bCanAirAttack = true;			// Can Air Attack Start? (´Ù½Ã °øÁß °ø°ÝÀ» ÇÒ ¼ö ÀÖ´ÂÁö)
+	bool bCanAirAttack = true;			// Can Air Attack Start? (ï¿½Ù½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½ ï¿½Ö´ï¿½ï¿½ï¿½)
 #pragma endregion
 
 #pragma region NINJA_STAR
@@ -144,6 +144,10 @@ protected:
 
 	UFUNCTION()
 	void ResetNinjaStar();									// Reset NinjaStar
+
+
+	UPROPERTY(EditDefaultsOnly, Category = "Sound")
+	class USoundBase* NinjaStar_Sound;
 public:
 	UFUNCTION()
 	void ThrowNinjaStar(bool bIsChacra = false);

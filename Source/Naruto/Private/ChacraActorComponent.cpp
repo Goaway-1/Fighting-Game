@@ -8,9 +8,8 @@
 
 UChacraActorComponent::UChacraActorComponent(){
 	PrimaryComponentTick.bCanEverTick = false;
-	SetIsReplicated(true);
 
-	ChacraCnt = 0;
+	SetIsReplicated(true);
 }
 void UChacraActorComponent::BeginPlay(){
 	Super::BeginPlay();
@@ -28,19 +27,23 @@ void UChacraActorComponent::UseChacra_Implementation() {
 		if (ChacraCnt++ == 0) SpawnCurParticle(ChacraParticles.ChacraActive1);
 		else SpawnCurParticle(ChacraParticles.ChacraActive2);
 
+		// SoundPlay...
+		if(ChacraActive_Sound) UGameplayStatics::PlaySound2D(this,ChacraActive_Sound);
+
 		// Reset Chacra Timer
 		FTimerDelegate ResetChacra;
-		ResetChacra.BindUFunction(this, FName("ResetChacraCnt"), false);
+		ResetChacra.BindUFunction(this, FName("ResetChacraCnt"), EChacraActions::ECA_None, false);
 		GetWorld()->GetTimerManager().ClearTimer(ResetChacraHandle);
 		GetWorld()->GetTimerManager().SetTimer(ResetChacraHandle, ResetChacra, 2.f, false);
 	}
 }
-void UChacraActorComponent::ResetChacraCnt_Implementation(bool bIsUsed) {
+void UChacraActorComponent::ResetChacraCnt_Implementation(EChacraActions InputChacraActions, bool bIsUsed) {
 	UE_LOG(LogTemp, Warning, TEXT("[Chacra]Reset Cnt"));
 
 	/** Chacra consumption if used the skill */
 	if (bIsUsed && ChacraCnt > 0) {
-		CurrentChacra -= (ChacraCnt * 30.f);
+		if (InputChacraActions == EChacraActions::ECA_Dash || InputChacraActions == EChacraActions::ECA_NinjaStar) CurrentChacra -= NormalChacraConsumption;
+		else CurrentChacra -= (ChacraCnt * SkillChacraConsumption);
 
 		// Set Widget & Particle
 		if(OwnPlayer.IsValid())	OwnPlayer->UpdateWidget(EWidgetState::EWS_Chacra);
@@ -85,7 +88,7 @@ bool UChacraActorComponent::MultiDestroyCurParticle_Validate() {
 bool UChacraActorComponent::UseChacra_Validate() {
 	return true;
 }
-bool UChacraActorComponent::ResetChacraCnt_Validate(bool bIsUsed) {
+bool UChacraActorComponent::ResetChacraCnt_Validate(EChacraActions InputChacraActions, bool bIsUsed) {
 	return true;
 }
 bool UChacraActorComponent::ChargingChacra_Validate() {

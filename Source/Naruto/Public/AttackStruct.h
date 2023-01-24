@@ -38,7 +38,7 @@ public:
 
 };
 
-/** »ó/ÇÏ °ø°ÝÀ¸·Î ±¸ºÐµÇ´Â ¸ùÅ¸ÁÖ */
+/** ï¿½ï¿½/ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ÐµÇ´ï¿½ ï¿½ï¿½Å¸ï¿½ï¿½ */
 USTRUCT(Atomic, BlueprintType)
 struct FAttackSplitMontageStruct
 {
@@ -59,7 +59,7 @@ struct FChacraAttackMontageStruct
 {
 	GENERATED_BODY()
 public:
-    /** 2°³·Î °íÁ¤ */
+    /** 2ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<class UAnimMontage*> MTChacra_Attacker;
 };
@@ -82,7 +82,7 @@ public:
 	class UAnimMontage* MT_VitcimSkillEnd;
 };
 
-/** °ø°Ý ¸ùÅ¸ÁÖ */
+/** ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½Å¸ï¿½ï¿½ */
 USTRUCT(Atomic, BlueprintType)
 struct FAttackMontageStruct 
 {
@@ -93,7 +93,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_Victim;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)   // SplitÇÒ ÀÎµ¦½º
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)   // Splitï¿½ï¿½ ï¿½Îµï¿½ï¿½ï¿½
 	int splitIdx;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -133,7 +133,7 @@ public:
 	class UAnimMontage* MT_BlockHited;
 };
 
-//°ø°Ý µ¥¹ÌÁö datatable
+//ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ datatable
 USTRUCT(BlueprintType)
 struct FDamageValue : public FTableRowBase
 {

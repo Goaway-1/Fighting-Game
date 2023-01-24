@@ -4247,7 +4247,7 @@
   1. 차크라 시전에도 차징 애니메이션 실행되는 오류 해결
     - __PlayerCondition의__ 변경을 'StartChacra()'에서 진행했기 때문으로, 'ChargingChacra()'로 이전
 
-      <summary>Cpp File</summary>
+      <details><summary>Cpp File</summary>
 
       ```cpp
       void ANPlayer::StartChacra() {
@@ -4269,3 +4269,125 @@
 
 > **<h3>Realization</h3>**  
   - 고지가 코앞이다.
+
+
+## **Day_31**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">사운드 추가</span>
+  - 공격, 차크라 차징 & 사용, 점프 등등에 사운드를 추가
+  - 백그라운드 사운드는 Level에서 진행...
+
+      <details><summary>Cpp File</summary>
+      
+      ```cpp
+      //ChacraActorComponent.cpp
+      void UChacraActorComponent::UseChacra_Implementation() {
+       ...
+        // SoundPlay...
+        if(ChacraActive_Sound) UGameplayStatics::PlaySound2D(this,ChacraActive_Sound);
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+      
+      ```cpp
+      //ChacraActorComponent.h
+      protected:
+        UPROPERTY(EditDefaultsOnly, Category="Sound")
+        class USoundBase* ChacraActive_Sound;
+      
+      ```
+      </details>
+      
+- ## <span style = "color:yellow;">호스트와 게스트</span>
+  - <img src="Image/SetDriver.png" height="300" title="SetDriver">
+  - 장거리 플레이를 지원하기 위해서 "Online SubSystem Steam"을 사용
+  - 이를 위해서 애플리케이션의 DefaultEngine.ini에 드라이버 및 클래스를 지정, "~..build.cs"에 모듈을 추가
+  - "Online Subsystem Stream", "AdvancedSessions", "AdvancedSteamSessions"등 3가지 플러그인을 사용
+    - [참고문서](https://docs.unrealengine.com/4.27/ko/ProgrammingAndScripting/Online/Steam/), [참고문서2](https://lesslate.github.io/unreal4/%EC%96%B8%EB%A6%AC%EC%96%BC4-%EC%98%A8%EB%9D%BC%EC%9D%B8-%EC%84%9C%EB%B8%8C-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0/), [플러그인](https://github.com/mordentral/AdvancedSessionsPlugin)
+  - 메인화면, 로비, 인게임으로 레벨이 구성되며, 각 역할은 아래와 같다.
+    - 메인화면 : 호스팅하거나 게스트로써 친구의 게임에 참여할 수 있도록 한다.
+    - 로비 : 게임 세션에 참여된 플레이어가 모여있는 곳으로 인원을 충족한다면, 호스터가 게임을 시작할 수 있다.
+    - 인게임 : 실제로 게임이 플레이 되는 레벨이다.
+  - 코드로 작성하지 않았기 때문에 세션을 만드는 과정과 참여과정만 그림으로 설명하며, GameInstance에서 실행된다.
+
+    - <img src="Image/CreateSession.png" height="300" title="CreateSession">
+      
+      - 호스팅하는 과정으로, 세션을 만들고, 로비로 이동한다.
+
+    - <img src="Image/JoinSession.png" height="200" title="JoinSession">
+      
+      - 세션에 입장하는 과정으로 선택된 세션에 인장하고, 로비로 이동한다.
+
+- ## <span style = "color:yellow;">잡다한 것</span>
+  1. 바꿔치기 파티클 추가
+      - 바꿔치기를 시전할때, 파티클을 추가..
+
+        <details><summary>Cpp File</summary>   
+
+        ```cpp
+        //ANPlayer.cpp
+        void ANPlayer::SideStep() {
+          ...
+          // Particle & Reset Chacra..
+          if(SideStepParticle) {
+            GetCurChacraComp()->ResetChacraCnt(false);
+            GetCurChacraComp()->ServerDestroyCurParticle();
+            GetCurChacraComp()->SpawnCurParticle(SideStepParticle);
+          }
+          ...
+        }
+        ```
+        </details>
+        <details><summary>Header File</summary>   
+
+        ```cpp
+        //ANPlayer.h
+        protected:
+          UPROPERTY(EditDefaultsOnly, Category = "SideStep | Particle")
+          class UParticleSystem* SideStepParticle = nullptr;    // Particle.. 
+        ```
+        </details>
+
+  2. 차크라 소모량 변경 및 지정
+      - 차크라를 사용하는 액션을 취할때, 현재 차크라 계수에 따른 차크라 양 소모되는 문제 발생
+      - 새로운 Enum클래스 "EChacraActions"를 제작하고, 매개변수에 이 값을 넘겨서 액션 별로 차크라 소모량을 지정
+
+        <details><summary>Cpp File</summary>   
+
+        ```cpp
+        //ChacraActorComponent.cpp
+        void UChacraActorComponent::ResetChacraCnt_Implementation(EChacraActions InputChacraActions, bool bIsUsed) {
+          /** Chacra consumption if used the skill */
+          if (bIsUsed && ChacraCnt > 0) {
+            if (InputChacraActions == EChacraActions::ECA_Dash || InputChacraActions == EChacraActions::ECA_NinjaStar) CurrentChacra -= NormalChacraConsumption;
+            else CurrentChacra -= (ChacraCnt * SkillChacraConsumption);
+            ...
+          }
+        }      
+        ```
+        </details>
+        <details><summary>Header File</summary>   
+
+        ```cpp
+        //ChacraActorComponent.h 
+        UENUM(BlueprintType)
+        enum class EChacraActions : uint8 {
+          ECA_None			  UMETA(DisplayName = "None"),
+          ECA_Dash			  UMETA(DisplayName = "Dash"),
+          ECA_NinjaStar		UMETA(DisplayName = "NinjaStar"),
+          ECA_Skill1			UMETA(DisplayName = "Skill1"),
+          ECA_Skill2			UMETA(DisplayName = "Skill2")
+        };
+        private:
+          /** Consumption by type */
+          const float NormalChacraConsumption = 8.f;
+          const float SkillChacraConsumption = 15.f;
+        public:
+          UFUNCTION(Server, Reliable, WithValidation)
+          void ResetChacraCnt(EChacraActions InputChacraActions, bool bIsUsed = true);
+        ```
+        </details>
+
+> **<h3>Realization</h3>**  
+  - 잡다한 에러와 게임모드만 설정하면 끝이다.

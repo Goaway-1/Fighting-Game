@@ -6,6 +6,7 @@
 #include "HealthManager.h"
 #include "MontageManager.h"
 #include "PlayerStateWidget.h"
+#include "Components/TextBlock.h"
 #include "Blueprint/UserWidget.h"
 #include "Blueprint/WidgetTree.h"
 
@@ -24,13 +25,16 @@ void ANPlayerController::BeginPlay() {
 			CutSceneWidget->AddToViewport();
 			CutSceneWidget->SetVisibility(ESlateVisibility::Hidden);
 
-			// Set Health & Chacra
+			// Set Health & Chacra 
 			HealthWidgets[0] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1Health");
 			HealthWidgets[1] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P2Health");
 			ChacraWidgets[0] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1Chacra");
 			ChacraWidgets[1] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P2Chacra");
 			SideStepWidgets[0] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1SideStep");
 			SideStepWidgets[1] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P2SideStep");
+			
+			// @TODO : GameMode...
+			MiddleScreenText = MainWidget->WidgetTree->FindWidget<UTextBlock>("MiddleScreenText");
 			
 			// Reset All Widget..
 			ResetWidget();
@@ -83,5 +87,12 @@ void ANPlayerController::EndCutScene() {
 	if (EndMongtage) {
 		ANPlayer* OwnPlayer = Cast<ANPlayer>(GetCharacter());
 		OwnPlayer->GetMontageManager()->PlayNetworkMontage(EndMongtage, 1.f, EPlayerCondition::EPC_Idle,0);
+	}
+}
+void ANPlayerController::SetStartGame() {
+	// @TODO : 일정 시간이 지나면 Fight로 전환되도록 설정...
+	// 추가로 공격 가능하도록 설정...
+	if (MiddleScreenText) {
+		MiddleScreenText->SetText(FText::FromString("Fight"));
 	}
 }
