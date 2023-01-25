@@ -17,11 +17,14 @@ void UHealthManager::TickComponent(float DeltaTime, ELevelTick TickType, FActorC
 }
 void UHealthManager::SetDecreaseHealth(int8 val) {
 	CurrentHealth -= val;
+	if(CurrentHealth <= 0.f) CurrentHealth = 0.f;
 	SetHealthRatio();
-	//UE_LOG(LogTemp, Warning, TEXT("Hited %f damage -> %f"), val, CurrentHealth);
 }
 bool UHealthManager::GetIsDead() {
 	return (CurrentHealth <= 0) ? true : false;
+}
+void UHealthManager::RecoverHealth() {
+	CurrentHealth = MaxHealth;
 }
 void UHealthManager::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);

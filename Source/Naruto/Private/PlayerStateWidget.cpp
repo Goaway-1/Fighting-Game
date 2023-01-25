@@ -9,6 +9,7 @@ void UPlayerStateWidget::UpdateState(EWidgetState state ,float value) {
 	Opts.SetMaximumFractionalDigits(0);
 
 	if(state == EWidgetState::EWS_Switch)StateBar->SetPercent(value * 0.25f);
+	else if (state == EWidgetState::EWS_Score)StateBar->SetPercent(value * 0.5f);
 	else StateBar->SetPercent(value / 100.f);
 
 	CurrentStateLabel->SetText(FText::AsNumber(value, &Opts));

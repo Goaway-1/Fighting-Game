@@ -70,6 +70,10 @@ public:
 
 	UFUNCTION()
 	FORCEINLINE int8 GetChacraCnt() {return ChacraCnt;}
+
+	// Recover Player..
+	UFUNCTION()
+	void RecoverChacra();
 #pragma endregion
 
 #pragma region PARTICLE

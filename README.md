@@ -4270,7 +4270,6 @@
 > **<h3>Realization</h3>**  
   - 고지가 코앞이다.
 
-
 ## **Day_31**
 > **<h3>Today Dev Story</h3>**
 - ## <span style = "color:yellow;">사운드 추가</span>
@@ -4391,3 +4390,351 @@
 
 > **<h3>Realization</h3>**  
   - 잡다한 에러와 게임모드만 설정하면 끝이다.
+
+## **Day_32**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">게임 플레이 로직</span>
+  - <img src="Image/GameBegin.gif" height="300" title="GameBegin">
+  - 두 플레이어가 모두 GameSession에 참여하면 GameMode에서 라운드의 시작을 알리며, 라운드의 시간이 흘러가도록 한다.
+  - 초기에는 Widget에서 Gamemode를 불러와 처리하려고 했으나, 클라이언트에서는 접근할 수 없는 문제가 발생하였다.
+    - 이전 Health, Chacra와 유사하게, PalyerController에서 GameMode의 상태를 가져와 "시간, 상태등"을 처리하였다.
+  - 라운드가 시작되기전에 플레이어들은 공격할 수 없으며, 이동만 가능하다.
+    - GameMode의 정보를 PlayerController에 가져와서 각 Player에서 접근..
+
+      <details><summary>Cpp File</summary>   
+
+      ```cpp
+      //NGameMode.cpp
+      ANGameMode::ANGameMode() {
+        PrimaryActorTick.bStartWithTickEnabled = true;
+        PrimaryActorTick.bCanEverTick = true;
+        PlayerStateClass = ANPlayerState::StaticClass();
+
+        RoundState = "Ready";
+        PlayerCnt = 0;
+        NumRounds = 2;
+        RoundTime = 99;
+        bIsTimerActive = false;
+      }
+      void ANGameMode::Tick(float DeltaSeconds) {
+        Super::Tick(DeltaSeconds);
+        /** Start Timer */
+        if (bIsTimerActive) {
+          if(RoundTime - DeltaSeconds >= 0) RoundTime -= DeltaSeconds;
+          else RoundTime = 0;
+        }
+      }
+      void ANGameMode::PostLogin(APlayerController* NewPlayer) {
+        Super::PostLogin(NewPlayer);
+
+        ANPlayerState* MainlayerState = Cast<ANPlayerState>(NewPlayer->PlayerState);
+        MainlayerState->InitPlayerData();
+        PlayerCnt++;
+
+        /** Round start when all players enter */
+        if (PlayerCnt >= 2) {
+          GetWorld()->GetTimerManager().ClearTimer(RoundStartHandle);
+          GetWorld()->GetTimerManager().SetTimer(RoundStartHandle, this, &ANGameMode::RoundStart,2.f);
+        }
+      }
+      void ANGameMode::RoundStart() {
+        bIsTimerActive = true;
+        RoundState = "Fight";
+
+        GetWorld()->GetTimerManager().ClearTimer(RoundStartHandle);
+        GetWorld()->GetTimerManager().SetTimer(RoundStartHandle, this, &ANGameMode::RoundStartEnd, 0.5f);
+      }
+      void ANGameMode::RoundStartEnd() {
+        RoundState = " ";
+      }
+      ```
+      ```cpp
+      //NPlayerController.cpp
+      void ANPlayerController::BeginPlay() {
+        // Set Round info
+        MiddleScreenText = MainWidget->WidgetTree->FindWidget<UTextBlock>("MiddleScreenText");
+        RoundTimerText = MainWidget->WidgetTree->FindWidget<UTextBlock>("RoundTimerText");
+
+        // Get GameMode..
+        if (HasAuthority()) CurGameMode = Cast<ANGameMode>(GetWorld()->GetAuthGameMode());
+      }
+      void ANPlayerController::TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) {
+        Super::TickActor(DeltaTime,TickType,ThisTickFunction);
+
+        if (CurGameMode && CurGameMode->GetIsTimerActive()) {
+          SetRoundInfo(CurGameMode->GetRoundTime(), CurGameMode->GetRoundState());
+        }
+      }
+      void ANPlayerController::SetRoundInfo_Implementation(int time, const FString& text) {
+        if (MiddleScreenText && RoundTimerText) {
+          if(time >= 98) {
+            MiddleScreenText->SetText(FText::FromString(text));
+            bIsRoundStart = true;
+          }
+          RoundTimerText->SetText(FText::FromString(FString::FromInt(time)));
+        }
+      }
+      ```
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::Attack() {
+        if (IsPlayerCondition(EPlayerCondition::EPC_Dead) || IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
+        if(!MainPlayerController->GetIsRoundStart()) return;      // Round 시작까지 대기
+        ...
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>   
+
+      ```cpp
+      //NGameMode.h
+      private:
+        int PlayerCnt;					  // Current Player Count
+        float RoundTime;				  // Current Timer
+        bool bIsTimerActive;			  // Is Timer Active?
+        int NumRounds;					  // Count of Win Round
+        FString RoundState;				  // Crrent Round State : Ready, fight, none
+        FTimerHandle RoundStartHandle; 	  // Round Start Handler
+
+        class ANGameMode* GameModeReference;
+
+        /** Round start when all players enter */
+        UFUNCTION()
+        void RoundStart();
+
+        /** Reset Message */
+        UFUNCTION()
+        void RoundStartEnd();
+      public:
+        FORCEINLINE bool GetIsTimerActive() { return bIsTimerActive; }
+        FORCEINLINE FString GetRoundState() { return RoundState; }
+        FORCEINLINE float GetRoundTime() {return RoundTime; }
+      ```
+      ```cpp
+      //NPlayerController.h
+      private:
+      	class UTextBlock* MiddleScreenText;
+        class UTextBlock* RoundTimerText;
+
+        class ANGameMode* CurGameMode;
+	      bool bIsRoundStart;                                         // Is Round Started? : 공격 가능 여부 결정..
+
+      	UFUNCTION(Client, Reliable)
+	      void SetRoundInfo(int time, const FString& text);						// Start Round..
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">게임 플레이 로직_2</span>
+  - <img src="Image/.gif" height="300" title="">
+  - 죽은 플레이어의 체력과 차크라를 모두 회복하여 다시 라운드를 진행한다.
+  - 플레이어가 사망하면, 라운드를 다시 진행할 수 있는지 판단하여 __"PlayerController클래스의 RequestRoundEnd()함수" -> "NGameMode클래스의 RoundEnd()함수"를__ 차례대로 호출하여 다시 라운드를 진행한다.
+    - 이때 플레이어의 상태(체력, 차크라, 상태)도 회복하기 위해서 "RecoverPlayer()"함수를 통해서 초기화한다.
+    - 죽은 상태에서는 움직이지도, 공격 당하지도 않는다.
+
+      <details><summary>Cpp File</summary>  
+
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
+        ...
+        /** Check Is Dead? */
+        if (GetHealthManager()->GetIsDead()) {
+          SetPlayerCondition(EPlayerCondition::EPC_Dead);
+          GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+          /** Reset Round & Player Condition */
+          if (CanRecoverCnt-- > 0) {
+            GetMainController()->RequestRoundEnd();
+            GetWorld()->GetTimerManager().ClearTimer(RecoverHandle);
+            GetWorld()->GetTimerManager().SetTimer(RecoverHandle, this, &ANPlayer::RecoverPlayer, 3.f, false);
+          }
+          else {  // @TODO : 게임 종료..  }
+
+          return;
+        }
+      }
+      void ANPlayer::RecoverPlayer() {
+        GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+        SetPlayerCondition(EPlayerCondition::EPC_Idle);
+        GetHealthManager()->RecoverHealth();
+        GetCurChacraComp()->RecoverChacra();
+
+        UpdateWidget(EWidgetState::EWS_Health);
+        UpdateWidget(EWidgetState::EWS_Chacra);
+      }
+      ```
+      ```cpp      
+      //HealthManager.cpp
+      void UHealthManager::RecoverHealth() {
+        CurrentHealth = MaxHealth;
+      }
+      //ChacraActorComponent.cpp
+      void UChacraActorComponent::RecoverChacra() {
+        ChacraCnt = 0;
+        CurrentChacra = 100.f;
+        ServerDestroyCurParticle();
+      }
+      ``` 
+      ```cpp
+      //NPlayerController.cpp
+      void ANPlayerController::RequestRoundEnd() {
+        if (CurGameMode) CurGameMode->RoundEnd();
+      }
+      ```
+      ```cpp
+      //NGameMode.cpp
+      void ANGameMode::RoundEnd() {
+        ResetValue();
+
+        GetWorld()->GetTimerManager().ClearTimer(RoundStartHandle);
+        GetWorld()->GetTimerManager().SetTimer(RoundStartHandle, this, &ANGameMode::RoundStart, 3.f);
+      }
+      void ANGameMode::ResetValue() {
+        RoundState = "Ready";
+        RoundTime = 99;
+        bIsTimerActive = false;
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+      
+      ```cpp
+      //NPlayer.h
+      private:
+      	UPROPERTY()
+        FTimerHandle RecoverHandle;
+
+        UFUNCTION()
+        void RecoverPlayer();		// Recover Player's Setting.. if player Die
+      ``` 
+      ```cpp
+      //HealthManager.h
+      public:
+        UFUNCTION()
+        void RecoverHealth();
+
+      //ChacraActorComponent.h
+      public:
+        UFUNCTION()
+        void RecoverChacra();
+      ```
+      ```cpp
+      //NPlayerController.h
+      public:
+        	UFUNCTION()
+	        void RequestRoundEnd();													// Request Restart Round..
+      ```
+      ```cpp
+      //NGameMode.h
+      public:
+        UFUNCTION()
+        void RoundEnd();          // End Round And Restart.!!
+
+        void ResetValue();        // Reset Round Value
+      ```
+      </details>   
+
+- ## <span style = "color:yellow;">게임 플레이 로직_3</span>
+  - <img src="Image/GameEnd_1.gif" height="300" title="GameEnd_1">
+  - 상대를 처치한 플레이어의 스코어를 올리고, 스코어 2점을 달성한 플레이어가 승리하게 되며, 최대 3회 진행하게 된다.
+    - 이전 "게임 플레이 로직_2"와 마찬가지로 한 플레이거가 2번 죽게되면, 컨트롤러와 게임모드를 거쳐 GameOver()함수를 호출하여 종료하도록한다.
+  - 위젯은 Health, Chacra, SideStep과 동일한 방식으로 구현하였다.
+
+      <details><summary>Cpp File</summary>
+        
+      ```cpp
+      //NPlayer.cpp
+      void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
+        ...
+        if (GetHealthManager()->GetIsDead()) {
+          /** Add Score */
+          AnotherPlayer->Score++;
+          AnotherPlayer->UpdateWidget(EWidgetState::EWS_Score);
+
+          /** Reset Round & Player Condition */
+          if (CanRecoverCnt-- > 0) ...
+          else GetMainController()->RequestGameOver();
+          return;
+        }
+      ```
+      ```cpp
+      //NPlayerController.cpp
+      void ANPlayerController::BeginPlay() {
+        ...
+        ScoreWidgets[0] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1Score");
+        ScoreWidgets[1] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P2Score");
+      }
+      void ANPlayerController::RequestGameOver() {
+        if (CurGameMode) CurGameMode->GameOver();
+      }
+      //NGameMode.cpp
+      void ANGameMode::GameOver() {
+        // @TODO : 승리자의 이름을 띄우고, N초 뒤에 레벨을 다시 시작
+        UE_LOG(LogTemp,Warning, TEXT("Game Over"));
+        RoundState = "GameOver";
+      }
+      ```
+      </details>
+      <details><summary>Header File</summary>
+
+      ```cpp
+      //NPlayerState.h
+      protected:
+	      int Score;		// 이긴 횟수...
+      //NPlayer.h
+      public:
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Round")
+        int Score;	
+      //
+      ```
+      ```cpp
+      //NPlayerController.h
+      public:
+        UFUNCTION()
+        void RequestGameOver();													// Request Game Over.
+      //NGameMode.h
+      public:
+        UFUNCTION()
+        void GameOver();          // Game Over...
+      ```
+      </details>
+
+
+- ## <span style = "color:yellow;">잡다한것</span>
+  1. 라운드 시작 전 공격되는 문제
+      - SetRoundInfo()함수를 확장하여 개선..
+      
+        <details><summary>Cpp File</summary>
+        
+        ```cpp
+        //NPlayerController.cpp
+        void ANPlayerController::SetRoundInfo_Implementation(int time, const FString& text, bool bIsForce) {
+          if (MiddleScreenText && RoundTimerText && bIsForce) {
+            MiddleScreenText->SetText(FText::FromString(text));
+            RoundTimerText->SetText(FText::FromString(FString::FromInt(time)));
+            bIsRoundStart = false;
+            return;
+          }
+
+          if (MiddleScreenText && RoundTimerText) {
+            if(time >= 98) {
+              MiddleScreenText->SetText(FText::FromString(text));
+              bIsRoundStart = true;
+            }
+            RoundTimerText->SetText(FText::FromString(FString::FromInt(time)));
+          }
+        }
+        ```
+        </details>
+        <details><summary>Header File</summary>
+
+        ```cpp
+        //NPlayerController.h
+          UFUNCTION(Client, Reliable)
+          void SetRoundInfo(int time, const FString& text, bool bIsForce = false);		
+        ```
+        </details>
+
+> **<h3>Realization</h3>**  
+  - 게임모드에서의 승리자의 정보와 다시 시작하기 구현
+  - 자잘한 오류를 수정하면 모든 작업이 완료된다.

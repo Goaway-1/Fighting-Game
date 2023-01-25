@@ -21,4 +21,5 @@ protected:
 	float Health;
 	float Chacra;
 	int SideStep;
+	int Score;		// 이긴 횟수...
 };

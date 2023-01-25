@@ -64,8 +64,9 @@ ANPlayer::ANPlayer() {
 	MontageManager = CreateDefaultSubobject<UMontageManager>(TEXT("MontageManager"));
 	HealthManager = CreateDefaultSubobject<UHealthManager>(TEXT("HealthManager"));
 
-	/* Set Condition */
-	SetPlayerCondition(EPlayerCondition::EPC_Idle);
+	/** Round Value.. */
+	Score = 0;
+	CanRecoverCnt = 1;
 }
 void ANPlayer::BeginPlay() {
 	Super::BeginPlay();
@@ -284,6 +285,7 @@ void ANPlayer::SetWeapon() {
 }
 void ANPlayer::Attack() {
 	if (IsPlayerCondition(EPlayerCondition::EPC_Dead) || IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
+	if(!MainPlayerController->GetIsRoundStart()) return;    // Round 시작까지 대기
 
 	if(IsLocallyControlled()) CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
@@ -308,6 +310,21 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 	if (GetHealthManager()->GetIsDead()) {
 		UE_LOG(LogTemp, Warning, TEXT("Player is Died"));
 		SetPlayerCondition(EPlayerCondition::EPC_Dead);
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		/** Add Score */
+		AnotherPlayer->Score++;
+		AnotherPlayer->UpdateWidget(EWidgetState::EWS_Score);
+
+		/** Reset Round & Player Condition */
+		if (CanRecoverCnt-- > 0) {
+			GetMainController()->RequestRoundEnd();
+			GetWorld()->GetTimerManager().ClearTimer(RecoverHandle);
+			GetWorld()->GetTimerManager().SetTimer(RecoverHandle, this, &ANPlayer::RecoverPlayer, 3.f, false);
+		}
+		else {
+			GetMainController()->RequestGameOver();
+		}
 		return;
 	}
 
@@ -374,6 +391,15 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 		if (AttackCnt >= 2) TargetCamera->SetAttackView();
 	}
 }
+void ANPlayer::RecoverPlayer() {
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	SetPlayerCondition(EPlayerCondition::EPC_Idle);
+	GetHealthManager()->RecoverHealth();
+	GetCurChacraComp()->RecoverChacra();
+
+	UpdateWidget(EWidgetState::EWS_Health);
+	UpdateWidget(EWidgetState::EWS_Chacra);
+}
 int ANPlayer::GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 	if(!AttackData) AttackData = AttackDataTable->FindRow<FDamageValue>(FName("Value"), FString(""));
 
@@ -390,13 +416,11 @@ int ANPlayer::GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt)
 	return 0;
 }
 void ANPlayer::DecreasedHealth(int8 DamageSize) {
-	GetHealthManager()->SetDecreaseHealth(DamageSize);
+	//GetHealthManager()->SetDecreaseHealth(DamageSize);
+	GetHealthManager()->SetDecreaseHealth(40);
 	GetCurAttackComp()->RotateToActor();
 
 	UpdateWidget(EWidgetState::EWS_Health);
-
-	GetMainController()->SetWidget(EWidgetState::EWS_Chacra);
-	AnotherPlayer->GetMainController()->SetWidget(EWidgetState::EWS_Chacra);
 }
 void ANPlayer::PressBlock() { 
 	if(!GetMovementComponent()->IsFalling()) SetPlayerCondition(EPlayerCondition::EPC_Block);
@@ -475,6 +499,9 @@ void ANPlayer::UpdateWidget_Implementation(const EWidgetState state) {
 				break;
 			case EWidgetState::EWS_Switch:
 				MainPlayerState->SetState(state, SideStepCnt);
+				break;
+			case EWidgetState::EWS_Score:
+				MainPlayerState->SetState(state, Score);
 				break;
 			default:
 				break;

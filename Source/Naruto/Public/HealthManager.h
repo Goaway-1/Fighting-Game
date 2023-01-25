@@ -45,5 +45,9 @@ public:
 
 	UFUNCTION()
 	FORCEINLINE float GetCurrentHealth() { return CurrentHealth; }
+
+	// Recover Player..
+	UFUNCTION()
+	void RecoverHealth();
 #pragma endregion
 };

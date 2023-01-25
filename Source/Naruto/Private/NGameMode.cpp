@@ -9,7 +9,8 @@ ANGameMode::ANGameMode() {
 	PrimaryActorTick.bCanEverTick = true;
 	PlayerStateClass = ANPlayerState::StaticClass();
 
-	CurrentPlayerCnt = 0;
+	RoundState = "Ready";
+	PlayerCnt = 0;
 	NumRounds = 2;
 	RoundTime = 99;
 	bIsTimerActive = false;
@@ -21,7 +22,7 @@ void ANGameMode::StartPlay() {
 void ANGameMode::Tick(float DeltaSeconds) {
 	Super::Tick(DeltaSeconds);
 
-	// 시간의 흐름..
+	/** Start Timer */
 	if (bIsTimerActive) {
 		if(RoundTime - DeltaSeconds >= 0) RoundTime -= DeltaSeconds;
 		else RoundTime = 0;
@@ -32,15 +33,37 @@ void ANGameMode::PostLogin(APlayerController* NewPlayer) {
 
 	ANPlayerState* MainlayerState = Cast<ANPlayerState>(NewPlayer->PlayerState);
 	MainlayerState->InitPlayerData();
-	CurrentPlayerCnt++;
+	PlayerCnt++;
 
-	// 모든 플레이어 진입시..
-	// 플레이어 컨트롤러에서 함수 실행 & 여기서 라운드 스타트 넘김..
-	if (CurrentPlayerCnt >= 2) {
-		UE_LOG(LogTemp,Warning,TEXT("All Player PostLogin!!"));
-		RoundStart();
+	/** Round start when all players enter */
+	if (PlayerCnt >= 2) {
+		GetWorld()->GetTimerManager().ClearTimer(RoundStartHandle);
+		GetWorld()->GetTimerManager().SetTimer(RoundStartHandle, this, &ANGameMode::RoundStart,2.f);
 	}
 }
 void ANGameMode::RoundStart() {
 	bIsTimerActive = true;
+	RoundState = "Fight";
+
+	GetWorld()->GetTimerManager().ClearTimer(RoundStartHandle);
+	GetWorld()->GetTimerManager().SetTimer(RoundStartHandle, this, &ANGameMode::RoundStartEnd, 0.5f);
+}
+void ANGameMode::RoundStartEnd() {
+	RoundState = " ";
+}
+void ANGameMode::RoundEnd() {
+	ResetValue();
+
+	GetWorld()->GetTimerManager().ClearTimer(RoundStartHandle);
+	GetWorld()->GetTimerManager().SetTimer(RoundStartHandle, this, &ANGameMode::RoundStart, 3.f);
+}
+void ANGameMode::ResetValue() {
+	RoundState = "Ready";
+	RoundTime = 99;
+	bIsTimerActive = false;
+}
+void ANGameMode::GameOver() {
+	// @TODO : 승리자의 이름을 띄우고, N초 뒤에 레벨을 다시 시작
+	UE_LOG(LogTemp,Warning, TEXT("Game Over"));
+	RoundState = "GameOver";
 }

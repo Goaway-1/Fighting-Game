@@ -14,6 +14,8 @@ float ANPlayerState::GetState(EWidgetState state) const{
 		return Chacra;
 	case EWidgetState::EWS_Switch:
 		return (float)SideStep;
+	case EWidgetState::EWS_Score:
+		return (float)Score;
 	default:
 		return Chacra;
 	}
@@ -22,6 +24,7 @@ void ANPlayerState::InitPlayerData(){
 	Health = 100.f;
 	Chacra = 100.f;
 	SideStep = 4;
+	Score = 0;
 }
 void ANPlayerState::SetState(EWidgetState state, float val) {
 	switch (state)
@@ -34,6 +37,9 @@ void ANPlayerState::SetState(EWidgetState state, float val) {
 		break;
 	case EWidgetState::EWS_Switch:
 		SideStep = (int)val;
+		break;
+	case EWidgetState::EWS_Score:
+		Score = (int)val;
 		break;
 	default:
 		break;

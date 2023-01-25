@@ -24,21 +24,34 @@ public:
 
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 
-// @TODO: 테스트중 ... MODE>>..
+private:
+	int PlayerCnt;					  // Current Player Count
+	float RoundTime;				  // Current Timer
+	bool bIsTimerActive;			  // Is Timer Active?
+	int NumRounds;					  // Count of Win Round
+	FString RoundState;				  // Crrent Round State : Ready, fight, none
+	FTimerHandle RoundStartHandle; 	  // Round Start Handler
 
-public:
-	int CurrentPlayerCnt;
+	class ANGameMode* GameModeReference;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameMode Settings")
-	float RoundTime;
-
-	// 승리해야하는 라운드..
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameMode Settings")
-	int NumRounds;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameMode Settings")
-	bool bIsTimerActive;
-
+	/** Round start when all players enter */
 	UFUNCTION()
 	void RoundStart();
+
+	/** Reset Message */
+	UFUNCTION()
+	void RoundStartEnd();
+
+	/** Reset Round Value */
+	void ResetValue();       
+public:
+	FORCEINLINE bool GetIsTimerActive() { return bIsTimerActive; }
+	FORCEINLINE FString GetRoundState() { return RoundState; }
+	FORCEINLINE float GetRoundTime() {return RoundTime; }
+
+	UFUNCTION()
+	void RoundEnd();          // End Round And Restart.!!
+
+	UFUNCTION()
+	void GameOver();          // Game Over...
 };

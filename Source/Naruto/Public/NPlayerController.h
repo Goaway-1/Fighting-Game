@@ -9,6 +9,7 @@ enum class EWidgetState : uint8 {
 	EWS_Health				UMETA(DisplayName = "Health"),
 	EWS_Chacra				UMETA(DisplayName = "Chacra"),
 	EWS_Switch				UMETA(DisplayName = "Switch"),
+	EWS_Score				UMETA(DisplayName = "Score"),
 	EWS_Condition			UMETA(DisplayName = "Condition")
 };
 
@@ -20,6 +21,7 @@ public:
 	ANPlayerController();
 protected:
 	virtual void BeginPlay() override;
+	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 
 public:
 	UPROPERTY()
@@ -48,35 +50,41 @@ public:
 	UFUNCTION()
 	void EndCutScene();																		// Play  End Montage each Player's
 
-#pragma region HEALTH&CHACRA
-public:
-	UPROPERTY(VisibleAnywhere, Category = "Widget")
-	TArray<class UPlayerStateWidget*> HealthWidgets;
-
-	UPROPERTY(VisibleAnywhere, Category = "Widget")
-	TArray<class UPlayerStateWidget*> ChacraWidgets;
-
-	UPROPERTY(VisibleAnywhere, Category = "Widget")
-	TArray<class UPlayerStateWidget*> SideStepWidgets;
-#pragma endregion
-
-#pragma region WIDGET
+#pragma region WIDGET & GAMEMODE
 private:
+	TArray<class UPlayerStateWidget*> HealthWidgets;
+	TArray<class UPlayerStateWidget*> ChacraWidgets;
+	TArray<class UPlayerStateWidget*> SideStepWidgets;
+	TArray<class UPlayerStateWidget*> ScoreWidgets;
+	class UTextBlock* MiddleScreenText;
+	class UTextBlock* RoundTimerText;
+
+	class ANGameMode* CurGameMode;
+	bool bIsRoundStart;
+
 	UFUNCTION(Client, Reliable)
 	void UpdateWidget(int idx, EWidgetState State, float value);			// Update Widget Only Client
 		
 	UFUNCTION(Client, Reliable)
 	void ResetWidget();														// INIT Widget
+
+	// Start Round..
+	// time : GameMode Time, text : GameMode State, bisForce : custom...
+	UFUNCTION(Client, Reliable)
+	void SetRoundInfo(int time, const FString& text, bool bIsForce = false);		
+
 public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void SetWidget(const EWidgetState State);								// Some Player State Changed..
-#pragma endregion
 
-	// @TODO : GameMODe 테스트중
-public:
-	UPROPERTY()
-	class UTextBlock* MiddleScreenText;
+	FORCEINLINE bool GetIsRoundStart() {return bIsRoundStart;}
 
 	UFUNCTION()
-	void SetStartGame();
+	void RequestRoundEnd();													// Request Restart Round..
+
+	UFUNCTION()
+	void RequestGameOver();													// Request Game Over.
+#pragma endregion
+
+
 };

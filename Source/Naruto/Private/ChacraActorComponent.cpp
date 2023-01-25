@@ -94,6 +94,11 @@ bool UChacraActorComponent::ResetChacraCnt_Validate(EChacraActions InputChacraAc
 bool UChacraActorComponent::ChargingChacra_Validate() {
 	return true;
 }
+void UChacraActorComponent::RecoverChacra() {
+	ChacraCnt = 0;
+	CurrentChacra = MaxChacra;
+	ServerDestroyCurParticle();
+}
 void UChacraActorComponent::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 

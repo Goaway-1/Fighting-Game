@@ -337,4 +337,19 @@ public:
 	UPROPERTY(EditAnywhere, Category = "TestMode")
 	EPlayerCondition TestModePlayerCondition;
 #pragma endregion
+
+#pragma region ROUND
+public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Round")
+	int Score;					
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Round")
+	int CanRecoverCnt;			// Can Recover Count..
+
+	UPROPERTY()
+	FTimerHandle RecoverHandle;
+
+	UFUNCTION()
+	void RecoverPlayer();		// Recover Player's Setting.. if player Die
+#pragma endregion
 };
