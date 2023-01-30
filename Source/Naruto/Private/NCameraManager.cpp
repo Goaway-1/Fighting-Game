@@ -6,7 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 #include "Net/UnrealNetwork.h"
-#include "NPlayer.h"
+//#include "NPlayer.h"
 
 ANCameraManager::ANCameraManager() {
 	PrimaryActorTick.bCanEverTick = true;

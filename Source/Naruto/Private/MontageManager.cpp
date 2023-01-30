@@ -64,6 +64,6 @@ bool UMontageManager::ServerStopMontage_Validate(){
 }
 void UMontageManager::SetActionMontage(bool btype) {
 	if(ActionMontages.Num() == 2) {
-		ActionMontage = (btype == true) ? ActionMontages[0] : ActionMontages[1];
+		ActionMontage = (btype == true) ? ActionMontages[1] : ActionMontages[0];
 	}
 }

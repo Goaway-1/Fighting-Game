@@ -45,7 +45,6 @@ void ANWeapon::OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 	if (HasAuthority() && OtherActor != this->GetOwner() && !AttackController->IsAlreadyOverlap(OtherActor)) {
 		AttackController->SetOverlapActors(OtherActor);
 
-		// @TODO : set hited Val, ������ ����, ī��Ʈ, 
 		UE_LOG(LogTemp,Warning,TEXT("Overlap %s %d"), *OwnPlayer->GetEnumToString(OwnPlayer->GetPlayerCondition()), OwnPlayer->GetCurAttackComp()->GetComboCnt());
 		ANPlayer* victim = Cast<ANPlayer>(OtherActor);
 		victim->IsHited(OwnPlayer->GetPlayerCondition(), OwnPlayer->GetCurAttackComp()->GetComboCnt());
@@ -67,4 +66,5 @@ void ANWeapon::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifeti
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ANWeapon, WeaponType);
+	DOREPLIFETIME(ANWeapon, MeshComp);
 }

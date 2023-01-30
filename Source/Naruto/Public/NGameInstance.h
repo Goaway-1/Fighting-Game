@@ -14,12 +14,4 @@ class NARUTO_API UNGameInstance : public UGameInstance
 public:
     UNGameInstance();
 
-//MODE...
-public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameInstance Settings")
-	float RoundTime;
-	
-	// 승리해야하는 라운드..
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "GameInstance Settings")
-	int NumRounds;
 };

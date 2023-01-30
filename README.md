@@ -4738,3 +4738,48 @@
 > **<h3>Realization</h3>**  
   - 게임모드에서의 승리자의 정보와 다시 시작하기 구현
   - 자잘한 오류를 수정하면 모든 작업이 완료된다.
+
+## **Day_33**
+> **<h3>Today Dev Story</h3>**
+- ## <span style = "color:yellow;">게임 플레이 로직_4</span>
+  - <img src="Image/GameEnd_2.gif" height="300" title="GameEnd_2">
+  - 이전 플레이 로직_3에서 GameOver()함수를 개선하여, 게임이 종료되면 승자의 이름이 화면에 표시
+    - 월드에 배치된 "PlayerController->Character->PlayerState"의 순서에 따라 Score에 접근하여 Score가 2이상인것을 찾아 반환
+
+      <details><summary>Cpp File</summary>
+
+      ```cpp
+      void ANGameMode::GameOver() {	
+        // Who is Winner?
+        int idx = 1;
+        for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; It++){
+          auto PlayerSt = Cast<ANPlayerState>(It->Get()->GetCharacter()->GetPlayerState());
+          
+          if (PlayerSt->GetState(EWidgetState::EWS_Score) == 2.f) {
+            RoundState = "Player ";
+            RoundState += FString::FromInt(idx);
+            RoundState += " is Win!!";
+            bIsTimerActive = false;
+            return;
+          }
+          else idx++;
+        }
+      }
+      ```
+      </details>
+
+- ## <span style = "color:yellow;">호스트와 클라이언트</span>
+  - <img src="Image/SteamSession.gif" height="300" title="SteamSession">
+  - <img src="Image/Session_Flow.png" height="300" title="Session_Flow">
+  - Steam계정에서의 친구와 온라인 멀티플레이가 가능하도록 Online SubSystem Steam을 사용하여 제작
+  - 메인 화면에는 "호스팅, 조인"버튼으로 구성된다.
+    - 호스팅 버튼을 클릭하면 세션을 생성하고, 플레이 레벨을 오픈하여 이동하고, 참가자가 조인버튼을 클릭하여 친구가 생성한 세션에 참여한다.
+  - "Online SubSystem Steam, Advanced Steam Sessions, Advanced Sessions"등 3가지 플러그인을 다운받아 사용하였다.
+  - 세션 생성과 조인등의 로직은 위 __FlowChart 그림을 참조..__ + [참조사이트](https://lesslate.github.io/unreal4/%EC%96%B8%EB%A6%AC%EC%96%BC4-%EC%98%A8%EB%9D%BC%EC%9D%B8-%EC%84%9C%EB%B8%8C-%EC%8B%9C%EC%8A%A4%ED%85%9C-%EC%82%AC%EC%9A%A9%ED%95%98%EA%B8%B0/)
+
+- ## <span style = "color:yellow;">잡다한것</span>
+  1. 클라이언트에서 점프 후 1타가 무시되는 문제
+      - AttackActorcomponent클래스에서 2타 이후로 수정 (클루지)
+
+> **<h3>Realization</h3>**  
+  - 개발 종료

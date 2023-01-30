@@ -145,7 +145,6 @@ protected:
 	UFUNCTION()
 	void ResetNinjaStar();									// Reset NinjaStar
 
-
 	UPROPERTY(EditDefaultsOnly, Category = "Sound")
 	class USoundBase* NinjaStar_Sound;
 public:

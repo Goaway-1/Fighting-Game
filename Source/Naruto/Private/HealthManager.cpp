@@ -3,9 +3,9 @@
 
 UHealthManager::UHealthManager(){
 	PrimaryComponentTick.bCanEverTick = false;
-	SetIsReplicated(true);
+	//SetIsReplicated(true);
 
-    CurrentHealth = MaxHealth;
+    //CurrentHealth = MaxHealth;
 }
 void UHealthManager::BeginPlay(){
 	Super::BeginPlay();

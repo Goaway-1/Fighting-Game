@@ -9,7 +9,7 @@
 UChacraActorComponent::UChacraActorComponent(){
 	PrimaryComponentTick.bCanEverTick = false;
 
-	SetIsReplicated(true);
+	//SetIsReplicated(true);
 }
 void UChacraActorComponent::BeginPlay(){
 	Super::BeginPlay();

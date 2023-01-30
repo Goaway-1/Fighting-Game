@@ -9,6 +9,7 @@
 #include "NWeapon.h"
 #include "AttackStruct.h"
 #include "NGameInstance.h"
+//#include "PlayerCameraComponent.h"
 #include "HealthManager.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/GameState.h"
@@ -20,7 +21,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "MontageManager.h"
 #include "NPlayerState.h"
-#include "PlayersInfoManager.h"
 #include "DrawDebugHelpers.h"
 
 
@@ -63,7 +63,7 @@ ANPlayer::ANPlayer() {
 	CurChacraComp = CreateDefaultSubobject<UChacraActorComponent>(TEXT("ChacraComponent"));
 	MontageManager = CreateDefaultSubobject<UMontageManager>(TEXT("MontageManager"));
 	HealthManager = CreateDefaultSubobject<UHealthManager>(TEXT("HealthManager"));
-
+	
 	/** Round Value.. */
 	Score = 0;
 	CanRecoverCnt = 1;
@@ -71,12 +71,13 @@ ANPlayer::ANPlayer() {
 void ANPlayer::BeginPlay() {
 	Super::BeginPlay();
 	
-	/** Find MainCameraManager & Set */
+	///** Find MainCameraManager & Set */
 	if (CameraManagerClass) {
 		TargetCamera = Cast<ANCameraManager>(UGameplayStatics::GetActorOfClass(this, ANCameraManager::StaticClass()));
 
 		if (TargetCamera) {
 			CameraManager = TargetCamera;
+			CameraManager->SetPlayer(this);
 			MainPlayerController = Cast<ANPlayerController>(GetController());
 			if (MainPlayerController) {
 				MainPlayerController->bAutoManageActiveCameraTarget = false;
@@ -86,7 +87,6 @@ void ANPlayer::BeginPlay() {
 		else GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Error! MainCameraManager does not exist in the world!"));
 	}
 
-	if (CameraManager) CameraManager->SetPlayer(this);
 	
 	/** Weapon */
 	SetWeapon();
@@ -106,15 +106,19 @@ void ANPlayer::Tick(float DeltaTime) {
 
 	// ����ž� : ������ ���� �������
 	if (bTestMode) {
-		SetPlayerCondition(TestModePlayerCondition);
+		if(TestModePlayerCondition == EPlayerCondition::EPC_Block) SetPlayerCondition(TestModePlayerCondition);
+		else Attack();
 		return;
 	}
 
 	/** Setting the rotation of the controller according to the rotation of the CameraManager */
 	if (CameraManager && HasAuthority()) {
 		FRotator NRot = FRotator(CameraManager->GetActorRotation().Pitch, CameraManager->GetActorRotation().Yaw, GetController()->GetControlRotation().Roll);
-		
-		if (MainPlayerController) MainPlayerController->ClientSetRotation(NRot); 
+
+		if (MainPlayerController) {
+			MainPlayerController->bAutoManageActiveCameraTarget = false;
+			MainPlayerController->ClientSetRotation(NRot);
+		}
 		else MainPlayerController = Cast<ANPlayerController>(GetController());
 	}
 
@@ -162,8 +166,8 @@ void ANPlayer::SetAnotherPlayer() {
 		/** Set IsInRange & DirectionVector (this to AnotherActor)*/
 		AP_Distance = (GetActorLocation() - AnotherPlayer->GetActorLocation()).Size();
 
-		DirectionVec = (GetAnotherLocation() - GetActorLocation()).GetSafeNormal();
-		DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
+		//DirectionVec = (GetAnotherLocation() - GetActorLocation()).GetSafeNormal();
+		//DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
 	}
 }
 
@@ -290,6 +294,10 @@ void ANPlayer::Attack() {
 	if(IsLocallyControlled()) CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
 }
 void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
+	/** Reset Attak Comp & Weapon Collision */
+	GetCurAttackComp()->ResetAll();
+	CurrentWeapon->SetCollisionONOFF(false);
+
 	/** if blocking */
 	if (IsPlayerCondition(EPlayerCondition::EPC_Block) && AttackerCondition == EPlayerCondition::EPC_Attack) {
 		// Can Block -60 ~ 60 Degree
@@ -308,9 +316,8 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 	
 	/** Check Is Dead? */
 	if (GetHealthManager()->GetIsDead()) {
-		UE_LOG(LogTemp, Warning, TEXT("Player is Died"));
-		SetPlayerCondition(EPlayerCondition::EPC_Dead);
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		SetPlayerCondition(EPlayerCondition::EPC_Dead);
 
 		/** Add Score */
 		AnotherPlayer->Score++;
@@ -416,8 +423,8 @@ int ANPlayer::GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt)
 	return 0;
 }
 void ANPlayer::DecreasedHealth(int8 DamageSize) {
+	GetHealthManager()->SetDecreaseHealth(1);;
 	//GetHealthManager()->SetDecreaseHealth(DamageSize);
-	GetHealthManager()->SetDecreaseHealth(40);
 	GetCurAttackComp()->RotateToActor();
 
 	UpdateWidget(EWidgetState::EWS_Health);
@@ -524,9 +531,6 @@ void ANPlayer::ChacraDash() {
 		CurChacraComp->ResetChacraCnt(EChacraActions::ECA_Dash);
 		CurAttackComp->ResetAll();
 
-		// Animation
-		GetMontageManager()->PlayNetworkMontage(GetMontageManager()->GetActionMontage().MT_ChacraDash, 0.f, GetPlayerCondition());
-
 		// Reset Timer
 		GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
 		GetWorld()->GetTimerManager().SetTimer(StopChacraDashHandle, this, &ANPlayer::StopChacraDash, 1.5f, false);
@@ -564,7 +568,6 @@ void ANPlayer::StopChacraDash() {
 	}
 }
 void ANPlayer::SideStep() {
-	//if (!IsPlayerCondition(EPlayerCondition::EPC_Hited) || !AnotherPlayer || SideStepCnt <= 0) return;
 	if (!AnotherPlayer || SideStepCnt <= 0) return;
 
 	if(!HasAuthority()){
@@ -580,6 +583,7 @@ void ANPlayer::SideStep() {
 		SetActorRotation(RotateVal);
 		ClientSideStep(RotateVal);
 		SideStepCnt--;
+		GetCurAttackComp()->ResetAll();
 		
 		// Particle & Reset Chacra..
 		if(SideStepParticle) {
@@ -694,4 +698,6 @@ void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifeti
 	DOREPLIFETIME(ANPlayer, CurrentWeapon);
 	DOREPLIFETIME(ANPlayer, bIsDoubleJump);
 	DOREPLIFETIME(ANPlayer, PlayerCondition);
+	DOREPLIFETIME(ANPlayer, SideStepCnt);
+	DOREPLIFETIME(ANPlayer, AnotherPlayer);
 }

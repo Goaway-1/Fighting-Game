@@ -61,6 +61,10 @@ public:
 	FORCEINLINE ANPlayerController* GetMainController() { return MainPlayerController;}
 
 	FString GetEnumToString(EPlayerCondition value);
+
+protected:
+	//UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
+	//class UPlayerCameraComponent* PlayerCameraComp;
 #pragma region PLAYERCONDITION
 public:
 	UFUNCTION(BlueprintCallable)

@@ -13,7 +13,7 @@
 UAttackActorComponent::UAttackActorComponent() {
 	PrimaryComponentTick.bCanEverTick = true;
 
-	SetIsReplicated(true);
+	//SetIsReplicated(true);
 }
 void UAttackActorComponent::BeginPlay() {
 	Super::BeginPlay();
@@ -136,7 +136,7 @@ void UAttackActorComponent::AttackInputCheck() {
 	bool isFalling = Cast<ANPlayer>(GetOwner())->GetMovementComponent()->IsFalling();
 	if (isFalling) {
 		bCanAirAttack = false;
-		if (OverlapActors.Num() <= 0) {		/** Last Attack & Not Hit then fall Down.. */
+		if (OverlapActors.Num() <= 0 && ComboCnt >= 2) {		/** Last Attack & Not Hit then fall Down.. */		// 1타가 아니면 넘기는걸로...
 			bAirAttackEnd = true;
 			bIsAttackCheck = false;
 			bAttacking = false;
