@@ -5,7 +5,7 @@
 #include "PlayerStateWidget.generated.h"
 
 /**
- * Health & Chacra
+ * Health, Chacra, SideStep, WonCount
  */
 UCLASS(Abstract)
 class NARUTO_API UPlayerStateWidget : public UUserWidget

@@ -17,7 +17,6 @@ class NARUTO_API ANWeapon : public AActor
 {
 	GENERATED_BODY()
 	
-#pragma region Default
 public:	
 	ANWeapon();
 
@@ -25,34 +24,27 @@ protected:
 	virtual void PostInitProperties() override;
 	virtual void BeginPlay() override;
 
-	UPROPERTY(VisibleAnywhere)
-	class ANPlayer* OwnPlayer;
+	TWeakObjectPtr<class ANPlayer>  OwnPlayer;
+	class UAttackManager* AttackController;
 
-	UPROPERTY(Replicated, VisibleAnywhere,Category = "Weapon")
+	UPROPERTY(Replicated)
 	EWeaponType WeaponType;
 
-	/* Please Set Weapons Mesh */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	TArray<UStaticMesh*> WeaponMeshType;
+	TArray<UStaticMesh*> WeaponMeshType;				// Set Weapons Mesh
 
-	UPROPERTY(Replicated, EditDefaultsOnly, Category = "Weapon")
+	UPROPERTY(Replicated)
 	UStaticMeshComponent* MeshComp;
 
 	/** If Overlap other Actor */
 	UFUNCTION()
 	void OnAttackBoxOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
-
-	UPROPERTY()
-	class UAttackActorComponent* AttackController;
 public:	
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE EWeaponType GetWeaponType() { return WeaponType; }
 
-	UFUNCTION()
-	void SetWeaponRandom();
-
 	UFUNCTION(BlueprintCallable)
 	void SetCollisionONOFF(bool isSet);
 
-#pragma endregion
+	void SetWeaponRandom();
 };

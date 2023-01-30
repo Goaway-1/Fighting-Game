@@ -28,7 +28,7 @@ void ANPlayerController::BeginPlay() {
 			CutSceneWidget->AddToViewport();
 			CutSceneWidget->SetVisibility(ESlateVisibility::Hidden);
 
-			// Set Health & Chacra 
+			// Find Health, Chacra, SideStep, Score Widget... 
 			HealthWidgets[0] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1Health");
 			HealthWidgets[1] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P2Health");
 			ChacraWidgets[0] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1Chacra");
@@ -38,7 +38,7 @@ void ANPlayerController::BeginPlay() {
 			ScoreWidgets[0] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P1Score");
 			ScoreWidgets[1] = MainWidget->WidgetTree->FindWidget<UPlayerStateWidget>("BP_P2Score");
 	
-			// Set Round info
+			// Set Round info Widget
 			MiddleScreenText = MainWidget->WidgetTree->FindWidget<UTextBlock>("MiddleScreenText");
 			RoundTimerText = MainWidget->WidgetTree->FindWidget<UTextBlock>("RoundTimerText");
 			
@@ -53,6 +53,7 @@ void ANPlayerController::BeginPlay() {
 void ANPlayerController::TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) {
 	Super::TickActor(DeltaTime,TickType,ThisTickFunction);
 
+	// Set Round Info..
 	if (CurGameMode) {
 		if(CurGameMode->GetIsTimerActive()) SetRoundInfo(CurGameMode->GetRoundTime(), CurGameMode->GetRoundState());
 		else if(CurGameMode->GetRoundState() != "Fight") SetRoundInfo(99, CurGameMode->GetRoundState(), true);
@@ -107,12 +108,14 @@ void ANPlayerController::PlayCutScene(UMediaSource* Source, UAnimMontage* Mongta
 	EndMongtage = Mongtage;			
 }
 void ANPlayerController::EndCutScene() {
+	// Play End Montage...
 	if (EndMongtage) {
 		ANPlayer* OwnPlayer = Cast<ANPlayer>(GetCharacter());
 		OwnPlayer->GetMontageManager()->PlayNetworkMontage(EndMongtage, 1.f, EPlayerCondition::EPC_Idle,0);
 	}
 }
 void ANPlayerController::SetRoundInfo_Implementation(int time, const FString& text, bool bIsForce) {
+	// Chanage Round (Force) and Set Round Text, Time
 	if (MiddleScreenText && RoundTimerText && bIsForce) {
 		MiddleScreenText->SetText(FText::FromString(text));
 		RoundTimerText->SetText(FText::FromString(FString::FromInt(time)));
@@ -120,6 +123,7 @@ void ANPlayerController::SetRoundInfo_Implementation(int time, const FString& te
 		return;
 	}
 
+	// Set Round Text, Time
 	if (MiddleScreenText && RoundTimerText) {
 		if(time >= 98) {
 			MiddleScreenText->SetText(FText::FromString(text));

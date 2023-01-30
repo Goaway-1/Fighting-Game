@@ -21,15 +21,14 @@ ANinjaStar::ANinjaStar(){
 void ANinjaStar::BeginPlay(){
 	Super::BeginPlay();
 
-	Setting();
+	StartThrow();
 }
 void ANinjaStar::Tick(float DeltaTime){
 	Super::Tick(DeltaTime);
 
 	MoveStar();
-	StaticMesh->AddLocalRotation(FRotator(0.f,5.f,0.f));
 }
-void ANinjaStar::Setting() {
+void ANinjaStar::StartThrow() {
 	BoxCollision->OnComponentBeginOverlap.AddDynamic(this, &ANinjaStar::OnNinjaStarOverlapBegin);
 
 	GetWorld()->GetTimerManager().ClearTimer(StopStarHandle);
@@ -59,6 +58,10 @@ void ANinjaStar::MoveStar() {
 			AddActorLocalRotation(FRotator(PitchVal, YawVal,0.f));
 		}
 	}
+	else UE_LOG(LogTemp, Warning, TEXT("NinjaStar No Target..."));
+
+	// Animation
+	StaticMesh->AddLocalRotation(FRotator(0.f, 5.f, 0.f));
 }
 void ANinjaStar::StopStar() {
 	UE_LOG(LogTemp, Warning, TEXT("NinjaStar is Destory..."));

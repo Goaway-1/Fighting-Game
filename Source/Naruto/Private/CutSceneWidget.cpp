@@ -3,9 +3,6 @@
 #include "NPlayerController.h"
 #include "Components/Image.h"
 
-void UCutSceneWidget::NativeConstruct() {
-}
-
 void UCutSceneWidget::PlayCutScene(UMediaSource* Source, float MediaLength) {
 	if(Source) {
 		UE_LOG(LogTemp, Warning, TEXT("Sceneing.."));

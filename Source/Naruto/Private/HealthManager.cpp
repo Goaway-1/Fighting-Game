@@ -3,22 +3,17 @@
 
 UHealthManager::UHealthManager(){
 	PrimaryComponentTick.bCanEverTick = false;
-	//SetIsReplicated(true);
+	SetIsReplicated(true);
 
-    //CurrentHealth = MaxHealth;
+    CurrentHealth = MaxHealth;
 }
 void UHealthManager::BeginPlay(){
 	Super::BeginPlay();
 	
 }
-void UHealthManager::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction){
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-}
 void UHealthManager::SetDecreaseHealth(int8 val) {
 	CurrentHealth -= val;
 	if(CurrentHealth <= 0.f) CurrentHealth = 0.f;
-	SetHealthRatio();
 }
 bool UHealthManager::GetIsDead() {
 	return (CurrentHealth <= 0) ? true : false;
@@ -29,5 +24,5 @@ void UHealthManager::RecoverHealth() {
 void UHealthManager::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UHealthManager, CurrentHealth);
+	DOREPLIFETIME_CONDITION(UHealthManager, CurrentHealth, COND_OwnerOnly);
 }

@@ -18,7 +18,7 @@ void UMontageManager::PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate,
 		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_UpperAttack || Condition == EPlayerCondition::EPC_AirAttack || Condition == EPlayerCondition::EPC_Hited || Condition == EPlayerCondition::EPC_UpperHited) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
-		else if (Condition == EPlayerCondition::EPC_Grap && idx == 1) {	
+		else if (Condition == EPlayerCondition::EPC_Grap && idx == 1) {								// Grap End
 			MainAnimInstance->Montage_JumpToSection("SuccessedAttack", Mongtage);
 		}
 	}
@@ -31,7 +31,7 @@ void UMontageManager::MultiPlayNetworkMontage_Implementation(UAnimMontage* Mongt
 		if (Condition == EPlayerCondition::EPC_Attack || Condition == EPlayerCondition::EPC_UpperAttack || Condition == EPlayerCondition::EPC_AirAttack || Condition == EPlayerCondition::EPC_Hited || Condition == EPlayerCondition::EPC_UpperHited) {
 			MainAnimInstance->Montage_JumpToSection(GetAttackMontageSection(idx), Mongtage);
 		}
-		else if(Condition == EPlayerCondition::EPC_Grap && idx == 1) {	//�׷� ������
+		else if(Condition == EPlayerCondition::EPC_Grap && idx == 1) {	
 			MainAnimInstance->Montage_JumpToSection("SuccessedAttack", Mongtage);
 		}
 	}

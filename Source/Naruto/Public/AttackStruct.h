@@ -5,6 +5,9 @@
 #include "Engine/DataTable.h"
 #include "AttackStruct.generated.h"
 
+/*
+* Only Enum & Struct Class..
+*/
 
 UENUM(BlueprintType)
 enum class EKeyUpDown : uint8 {
@@ -30,15 +33,13 @@ class NARUTO_API AAttackStruct : public AActor
 public:	
 	AAttackStruct();
 
-protected:
 	virtual void BeginPlay() override;
-
-public:	
+protected:
 	virtual void Tick(float DeltaTime) override;
 
 };
 
-/** ��/�� �������� ���еǴ� ��Ÿ�� */
+/** Animation Struct of Extended Attacks (UP/DOWN) */
 USTRUCT(Atomic, BlueprintType)
 struct FAttackSplitMontageStruct
 {
@@ -54,16 +55,17 @@ public:
 	class UAnimMontage* MTDOWN_Victim;
 };
 
+/** Animation Struct of Skill Initial Animation */
 USTRUCT(Atomic, BlueprintType)
 struct FChacraAttackMontageStruct 
 {
 	GENERATED_BODY()
 public:
-    /** 2���� ���� */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TArray<class UAnimMontage*> MTChacra_Attacker;
 };
 
+/** Animation Struct of ChacraSkills */
 USTRUCT(Atomic, BlueprintType)
 struct FChacraSkill 
 {
@@ -82,7 +84,7 @@ public:
 	class UAnimMontage* MT_VitcimSkillEnd;
 };
 
-/** ���� ��Ÿ�� */
+/** Animation Struct of Action */
 USTRUCT(Atomic, BlueprintType)
 struct FAttackMontageStruct 
 {
@@ -93,7 +95,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_Victim;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)   // Split�� �ε���
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)   // Split count of Extend Attack
 	int splitIdx;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -102,7 +104,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FChacraAttackMontageStruct ChacraAttack;
 
-	/** Hold Attack */
+	/** Grap Attack */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class UAnimMontage* MT_GrapAttack;
 
@@ -133,7 +135,7 @@ public:
 	class UAnimMontage* MT_BlockHited;
 };
 
-//���� ������ datatable
+/** Damage Data Struct of Attack (Table) */
 USTRUCT(BlueprintType)
 struct FDamageValue : public FTableRowBase
 {
@@ -167,6 +169,7 @@ public:
 	int	SkillAk2 = 25;
 };
 
+/** Particle Struct of Chacra */
 USTRUCT(Atomic, BlueprintType)
 struct FParticles 
 {

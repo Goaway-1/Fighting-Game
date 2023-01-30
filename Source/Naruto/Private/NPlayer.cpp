@@ -9,15 +9,14 @@
 #include "NWeapon.h"
 #include "AttackStruct.h"
 #include "NGameInstance.h"
-//#include "PlayerCameraComponent.h"
 #include "HealthManager.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/PlayerState.h"
 #include "Camera/CameraComponent.h"
 #include "Net/UnrealNetwork.h"
-#include "AttackActorComponent.h"
-#include "ChacraActorComponent.h"
+#include "AttackManager.h"
+#include "ChacraManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "MontageManager.h"
 #include "NPlayerState.h"
@@ -41,7 +40,6 @@ ANPlayer::ANPlayer() {
 
 	/* Jump Setting */
 	JumpMaxCount = 2;
-	JumpMovementForce = 1000.f;
 	GetCharacterMovement()->JumpZVelocity = 1400.f;
 	GetCharacterMovement()->AirControl = 0.f;
 	GetCharacterMovement()->AirControlBoostMultiplier = 0.f;
@@ -59,8 +57,8 @@ ANPlayer::ANPlayer() {
 	WeaponAttachSocketName = "WeaponSocket";
 
 	/* Attack & Chacra Component */ 
-	CurAttackComp = CreateDefaultSubobject<UAttackActorComponent>(TEXT("AttackComponent"));
-	CurChacraComp = CreateDefaultSubobject<UChacraActorComponent>(TEXT("ChacraComponent"));
+	AttackManager = CreateDefaultSubobject<UAttackManager>(TEXT("AttackManager"));
+	ChacraManager = CreateDefaultSubobject<UChacraManager>(TEXT("ChacraManager"));
 	MontageManager = CreateDefaultSubobject<UMontageManager>(TEXT("MontageManager"));
 	HealthManager = CreateDefaultSubobject<UHealthManager>(TEXT("HealthManager"));
 	
@@ -73,10 +71,9 @@ void ANPlayer::BeginPlay() {
 	
 	///** Find MainCameraManager & Set */
 	if (CameraManagerClass) {
-		TargetCamera = Cast<ANCameraManager>(UGameplayStatics::GetActorOfClass(this, ANCameraManager::StaticClass()));
+		CameraManager = Cast<ANCameraManager>(UGameplayStatics::GetActorOfClass(this, ANCameraManager::StaticClass()));
 
-		if (TargetCamera) {
-			CameraManager = TargetCamera;
+		if (CameraManager) {
 			CameraManager->SetPlayer(this);
 			MainPlayerController = Cast<ANPlayerController>(GetController());
 			if (MainPlayerController) {
@@ -87,13 +84,9 @@ void ANPlayer::BeginPlay() {
 		else GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Red, TEXT("Error! MainCameraManager does not exist in the world!"));
 	}
 
-	
-	/** Weapon */
+	/** Set INIT Weapon & Montage */
 	SetWeapon();
-
-	/* Attack */
-	CurAttackComp->SetInit(this);
-	MontageManager->SetInit(this, GetMesh()->GetAnimInstance());
+	MontageManager->SetInit(GetMesh()->GetAnimInstance());
 }
 void ANPlayer::PossessedBy(AController* NewController) {
 	Super::PossessedBy(NewController);
@@ -104,7 +97,7 @@ void ANPlayer::PossessedBy(AController* NewController) {
 void ANPlayer::Tick(float DeltaTime) {
 	Super::Tick(DeltaTime);
 
-	// ����ž� : ������ ���� �������
+	// @TODO : Test Mode...
 	if (bTestMode) {
 		if(TestModePlayerCondition == EPlayerCondition::EPC_Block) SetPlayerCondition(TestModePlayerCondition);
 		else Attack();
@@ -157,9 +150,7 @@ void ANPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) 
 void ANPlayer::SetAnotherPlayer() {
 	if (!AnotherPlayer) {
 		for (auto x : GetWorld()->GetGameState()->PlayerArray) {
-			if (this != x->GetPawn()) {
-				AnotherPlayer = Cast<ANPlayer>(x->GetPawn());
-			}
+			if (this != x->GetPawn()) AnotherPlayer = Cast<ANPlayer>(x->GetPawn());
 		}
 	}
 	else {
@@ -168,49 +159,6 @@ void ANPlayer::SetAnotherPlayer() {
 
 		//DirectionVec = (GetAnotherLocation() - GetActorLocation()).GetSafeNormal();
 		//DrawDebugLine(GetWorld(), GetActorLocation(), GetActorLocation() + (DirectionVec * 100), FColor::Red, false, 0, 0, 5);
-	}
-}
-
-// delete...
-FString ANPlayer::GetEnumToString(EPlayerCondition value){		
-	switch (value)
-	{
-	case EPlayerCondition::EPC_Idle:
-		return "EPC_Idle";
-	case EPlayerCondition::EPC_Hited:
-		return "EPC_Hited";
-	case EPlayerCondition::EPC_AirHited:
-		return "EPC_AirHited";
-	case EPlayerCondition::EPC_UpperHited:
-		return "EPC_UpperHited";
-	case EPlayerCondition::EPC_Parry:
-		return "EPC_Parry";
-	case EPlayerCondition::EPC_Charge:
-		return "EPC_Charge";
-	case EPlayerCondition::EPC_Block:
-		return "EPC_Block";
-	case EPlayerCondition::EPC_Dash:
-		return "EPC_Dash";
-	case EPlayerCondition::EPC_Jump:
-		return "EPC_Jump";
-	case EPlayerCondition::EPC_Attack:
-		return "EPC_Attack";
-	case EPlayerCondition::EPC_UpperAttack:
-		return "EPC_UpperAttack";
-	case EPlayerCondition::EPC_AirAttack:
-		return "EPC_AirAttack";
-	case EPlayerCondition::EPC_Grap:
-		return "EPC_Grap";
-	case EPlayerCondition::EPC_Skill1:
-		return "EPC_Skill1";
-	case EPlayerCondition::EPC_Skill2:
-		return "EPC_Skill2";
-	case EPlayerCondition::EPC_CantMove:
-		return "EPC_CantMove";
-	case EPlayerCondition::EPC_Dead:
-		return "EPC_Dead";
-	default:
-		return "EPC_Idle";
 	}
 }
 void ANPlayer::MoveForward(float Value) {
@@ -240,13 +188,11 @@ bool ANPlayer::IsCanMove() {
 void ANPlayer::Jump() {
 	if (!IsCanMove()) return;
 
-	if (CurChacraComp->GetChacraCnt() > 0) {
+	if (GetChacraManager()->GetChacraCnt() > 0) {
 		ChacraDash();
 	}
 	else {
-		if (!HasAuthority()) {
-			ServerJump();
-		}
+		if (!HasAuthority()) ServerJump();
 
 		if (JumpCurrentCount++ < 2) {
 			/** for Animation */
@@ -279,6 +225,7 @@ void ANPlayer::SetWeapon() {
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+		// Spawn Weapon (Random)..
 		if (StarterWeaponClass) CurrentWeapon = GetWorld()->SpawnActor<ANWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParams);
 		if (CurrentWeapon) {
 			CurrentWeapon->SetOwner(this);
@@ -289,23 +236,21 @@ void ANPlayer::SetWeapon() {
 }
 void ANPlayer::Attack() {
 	if (IsPlayerCondition(EPlayerCondition::EPC_Dead) || IsPlayerCondition(EPlayerCondition::EPC_CantMove) || IsPlayerCondition(EPlayerCondition::EPC_Dash) || IsPlayerCondition(EPlayerCondition::EPC_Hited)) return;
-	if(!MainPlayerController->GetIsRoundStart()) return;    // Round 시작까지 대기
+	if(!MainPlayerController->GetIsRoundStart()) return;    // No attack until the round begins
 
-	if(IsLocallyControlled()) CurAttackComp->DefaultAttack_KeyDown(GetKeyUpDown());
+	if(IsLocallyControlled()) AttackManager->DefaultAttack_KeyDown(GetKeyUpDown());
 }
 void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 	/** Reset Attak Comp & Weapon Collision */
-	GetCurAttackComp()->ResetAll();
+	GetAttackManager()->ResetAll();
 	CurrentWeapon->SetCollisionONOFF(false);
 
-	/** if blocking */
+	/** if block Success */
 	if (IsPlayerCondition(EPlayerCondition::EPC_Block) && AttackerCondition == EPlayerCondition::EPC_Attack) {
-		// Can Block -60 ~ 60 Degree
-		float Inner = GetDotProductTo(AnotherPlayer);
+		float Inner = GetDotProductTo(AnotherPlayer);				// Can Block -60 ~ 60 Degree
 
 		if (Inner > BlockDegree) {
 			GetMontageManager()->PlayNetworkMontage(AnotherPlayer->GetMontageManager()->GetActionMontage().MT_BlockHited, 1.f, GetPlayerCondition());
-			UE_LOG(LogTemp, Warning, TEXT("Block Successed!!"));
 			return;
 		}
 		else UE_LOG(LogTemp, Warning, TEXT("Block failed!"));
@@ -314,7 +259,7 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 	/** Decreased Health & UI */
 	DecreasedHealth(GetDamageValue(AttackerCondition, AttackCnt));
 	
-	/** Check Is Dead? */
+	/** Check Is Dead */
 	if (GetHealthManager()->GetIsDead()) {
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SetPlayerCondition(EPlayerCondition::EPC_Dead);
@@ -335,48 +280,47 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 		return;
 	}
 
+	/** HITED!! */
 	SetPlayerCondition(EPlayerCondition::EPC_Hited);
-	if (AttackerCondition == EPlayerCondition::EPC_Skill1 || AttackerCondition == EPlayerCondition::EPC_Skill2) {
-		
-		/** Play CutScene if Skill */
+	if (AttackerCondition == EPlayerCondition::EPC_Skill1 || AttackerCondition == EPlayerCondition::EPC_Skill2) {			/** Play CutScene if Skill */
 		UE_LOG(LogTemp, Warning, TEXT("%s Skill %s"), *AnotherPlayer->GetName(), *this->GetName());
 		int SkillIdx = (AttackerCondition == EPlayerCondition::EPC_Skill1) ? 0: 1;
 		ClientPlayScene(false, SkillIdx);
 		AnotherPlayer->ClientPlayScene(true, SkillIdx);
 	}
-	else if (AttackerCondition == EPlayerCondition::EPC_Grap) {
+	else if (AttackerCondition == EPlayerCondition::EPC_Grap) {																/** Grap */
 		UE_LOG(LogTemp, Warning, TEXT("%s Grap %s"), *AnotherPlayer->GetName(), *this->GetName());
 
 		/** Set Victim  Rotate & Location */
-		UAnimMontage* mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_GrapVictim;
-		GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
-		GetCurAttackComp()->RotateToActor();
+		UAnimMontage* CurMontage = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_GrapVictim;
+		GetMontageManager()->PlayNetworkMontage(CurMontage, 1.f, GetPlayerCondition());
+		GetAttackManager()->RotateToActor();
 
 		FVector forceVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100.f);
 		SetActorLocation(forceVec);
 
-		AnotherPlayer->GetCurAttackComp()->bGrapHited = true;
+		AnotherPlayer->GetAttackManager()->bGrapHited = true;
 	}
 	else  {
-		if (GetMovementComponent()->IsFalling()) {
-			SetPlayerCondition(EPlayerCondition::EPC_AirHited);
-			UAnimMontage* mon;
+		UAnimMontage* CurMontage;
+		if (GetMovementComponent()->IsFalling()) {										/** Hited in Air... */
+			SetPlayerCondition(EPlayerCondition::EPC_AirHited);	
 
 			// Set ON Gravity & GO DOWN if Last Attack Hited
 			if(AttackCnt == 6) {
 				LaunchCharacter(GetActorUpVector() * - 1000.f,false,false);
 				SetGravity(1.f);
-				mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictimEnd;
+				CurMontage = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictimEnd;
 			}
 			else {
 				LaunchCharacter(GetActorForwardVector() * -100.f, false, false);
 				SetGravity(0.f);
-				mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictim;
+				CurMontage = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_JumpVictim;
 			}
 
-			GetMontageManager()->PlayNetworkMontage(mon, 1.f, GetPlayerCondition());
+			GetMontageManager()->PlayNetworkMontage(CurMontage, 1.f, GetPlayerCondition());
 		}
-		else if (AttackerCondition == EPlayerCondition::EPC_UpperAttack) {				/** �������� ����! */
+		else if (AttackerCondition == EPlayerCondition::EPC_UpperAttack) {				/** Launched Player to Air */
 			UE_LOG(LogTemp, Warning, TEXT("Upper Vitcim!"));
 			SetPlayerCondition(EPlayerCondition::EPC_UpperHited);
 
@@ -384,25 +328,25 @@ void ANPlayer::IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 			FVector ForceVec = (GetActorForwardVector() * -500.f) + FVector(0.f, 0.f, 2000.f);
 			LaunchCharacter(ForceVec, false, false);
 		}
-		else {
-			UAnimMontage* mon;
-			if (AttackerCondition == EPlayerCondition::EPC_UpAttack) mon = AnotherPlayer->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Victim;
-			else if (AttackerCondition == EPlayerCondition::EPC_DownAttack) mon = AnotherPlayer->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Victim;
-			else mon = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
+		else {																			/** Normal Hited */
+			if (AttackerCondition == EPlayerCondition::EPC_UpAttack) CurMontage = AnotherPlayer->GetMontageManager()->GetActionMontage().AttackSplit.MTUP_Victim;
+			else if (AttackerCondition == EPlayerCondition::EPC_DownAttack) CurMontage = AnotherPlayer->GetMontageManager()->GetActionMontage().AttackSplit.MTDOWN_Victim;
+			else CurMontage = AnotherPlayer->GetMontageManager()->GetActionMontage().MT_Victim;
 
-			GetMontageManager()->PlayNetworkMontage(mon, 1.f, EPlayerCondition::EPC_Hited, AttackCnt);
+			GetMontageManager()->PlayNetworkMontage(CurMontage, 1.f, EPlayerCondition::EPC_Hited, AttackCnt);
 		}
 
 		/** Set Camera & Player Rotate */
-		GetCurAttackComp()->RotateToActor();
-		if (AttackCnt >= 2) TargetCamera->SetAttackView();
+		GetAttackManager()->RotateToActor();
+		if (AttackCnt >= 2) CameraManager->SetAttackView();
 	}
 }
 void ANPlayer::RecoverPlayer() {
+	// Recover Health, Chacra, Condition, Widget...
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 	GetHealthManager()->RecoverHealth();
-	GetCurChacraComp()->RecoverChacra();
+	GetChacraManager()->RecoverChacra();
 
 	UpdateWidget(EWidgetState::EWS_Health);
 	UpdateWidget(EWidgetState::EWS_Chacra);
@@ -410,6 +354,7 @@ void ANPlayer::RecoverPlayer() {
 int ANPlayer::GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt) {
 	if(!AttackData) AttackData = AttackDataTable->FindRow<FDamageValue>(FName("Value"), FString(""));
 
+	// @TODO : Simple..
 	if (AttackerCondition == EPlayerCondition::EPC_Attack || AttackerCondition == EPlayerCondition::EPC_UpAttack || AttackerCondition == EPlayerCondition::EPC_DownAttack ||AttackerCondition == EPlayerCondition::EPC_UpperAttack || GetMovementComponent()->IsFalling()) {
 		if(AttackerCondition == EPlayerCondition::EPC_Attack) return (AttackCnt == 4) ? AttackData->LastAk : AttackData->Ak;
 		else if (AttackerCondition == EPlayerCondition::EPC_UpAttack || AttackerCondition == EPlayerCondition::EPC_DownAttack) return (AttackCnt == 5) ? AttackData->ExtensionLastAk : AttackData->ExtensionAk;
@@ -423,9 +368,8 @@ int ANPlayer::GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt)
 	return 0;
 }
 void ANPlayer::DecreasedHealth(int8 DamageSize) {
-	GetHealthManager()->SetDecreaseHealth(1);;
-	//GetHealthManager()->SetDecreaseHealth(DamageSize);
-	GetCurAttackComp()->RotateToActor();
+	GetHealthManager()->SetDecreaseHealth(DamageSize);
+	GetAttackManager()->RotateToActor();
 
 	UpdateWidget(EWidgetState::EWS_Health);
 }
@@ -446,14 +390,10 @@ void ANPlayer::ClientPlayScene_Implementation(bool bisAttacker, int idx) {
 	}
 }
 void ANPlayer::SetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
-	/*if (!HasAuthority()) ServerSetPlayerCondition(NewCondition);
-	else PlayerCondition = NewCondition;*/
 	PlayerCondition = NewCondition;
 	ServerSetPlayerCondition(NewCondition);
 }
 void ANPlayer::ServerSetPlayerCondition_Implementation(EPlayerCondition NewCondition) {
-	//SetPlayerCondition(NewCondition);
-	//UE_LOG(LogTemp, Warning, TEXT("Changed Condition : %s"), *GetEnumToString(NewCondition));
 	PlayerCondition = NewCondition;
 }
 bool ANPlayer::ServerSetPlayerCondition_Validate(EPlayerCondition NewCondition) {
@@ -464,32 +404,30 @@ void ANPlayer::StartChacra() {
 	bisCharing = false;
 }
 void ANPlayer::ChargingChacra() {
+	/** STOP ChargingChacra Case.. */
 	if(IsPlayerCondition(EPlayerCondition::EPC_Idle) || IsPlayerCondition(EPlayerCondition::EPC_Charge)) {
 		SetPlayerCondition(EPlayerCondition::EPC_Charge);
+	}
+	else if (GetChacraManager()->GetChacra() >= 100.f) {
+		bisCharing = true;
+		EndChacra();
+		return;
 	}
 	else {
 		EndChacra();
 		return;
 	}
-	
-	if (GetCurChacraComp()->GetChacra() >= 100.f) {
-		bisCharing = true;
-		EndChacra();
-		return;
-	}
-
-	UE_LOG(LogTemp,Warning,TEXT("Is Working"));
 
 	/** ChacraCharging in few Seconds */
 	int64 HoldingTime = ChacraPressedTime / 10000;
 	if (HoldingTime >= ChacraChargingSec) {
-		GetCurChacraComp()->ChargingChacra();
+		GetChacraManager()->ChargingChacra();
 		bisCharing = true;
 	}
 }
 void ANPlayer::EndChacra() {
-	if(!bisCharing) GetCurChacraComp()->UseChacra();
-	else GetCurChacraComp()->ServerDestroyCurParticle();              //else ��ũ�� ��¡ ������ �Լ� ȣ��
+	if(!bisCharing) GetChacraManager()->UseChacra();
+	else GetChacraManager()->ServerDestroyCurParticle();				// if exist ChacraParticle..
 
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 }
@@ -502,7 +440,7 @@ void ANPlayer::UpdateWidget_Implementation(const EWidgetState state) {
 				MainPlayerState->SetState(state, GetHealthManager()->GetCurrentHealth());
 				break;
 			case EWidgetState::EWS_Chacra:
-				MainPlayerState->SetState(state, GetCurChacraComp()->GetChacra());
+				MainPlayerState->SetState(state, GetChacraManager()->GetChacra());
 				break;
 			case EWidgetState::EWS_Switch:
 				MainPlayerState->SetState(state, SideStepCnt);
@@ -527,9 +465,9 @@ void ANPlayer::ChacraDash() {
 	if (AnotherPlayer) {
 		UE_LOG(LogTemp, Warning, TEXT("Chacra Dash to %s"), *AnotherPlayer->GetName());
 		
+		AttackManager->ResetAll();
 		SetPlayerCondition(EPlayerCondition::EPC_Dash);
-		CurChacraComp->ResetChacraCnt(EChacraActions::ECA_Dash);
-		CurAttackComp->ResetAll();
+		GetChacraManager()->ResetChacraCnt(EChacraActions::ECA_Dash);
 
 		// Reset Timer
 		GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
@@ -538,6 +476,7 @@ void ANPlayer::ChacraDash() {
 }
 void ANPlayer::AutoChacraDash(float DeltaTime) {
 	if (IsPlayerCondition(EPlayerCondition::EPC_Dash)) {
+		/** Stop Dash if near each other .... */
 		if (AP_Distance < ChacraDashStopDis) {
 			StopChacraDash();
 			return;
@@ -556,14 +495,13 @@ void ANPlayer::AutoChacraDash(float DeltaTime) {
 	}
 }
 void ANPlayer::StopChacraDash() {
-	GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);				//Ÿ�̸� �ʱ�ȭ
+	GetWorld()->GetTimerManager().ClearTimer(StopChacraDashHandle);
 	SetPlayerCondition(EPlayerCondition::EPC_Idle);
 	GetMontageManager()->StopNetworkMontage();
 
 	// Set Player Condition if Crash 'in Air'
 	if (GetMovementComponent()->IsFalling()) {
-		SetAllGravity(0.f);
-
+		SetGravity(0.f,true);
 		AnotherPlayer->SetPlayerCondition(EPlayerCondition::EPC_Idle);
 	}
 }
@@ -574,6 +512,7 @@ void ANPlayer::SideStep() {
 		ServerSideStep();
 	}
 	else{
+		// Move & Rotate
 		FVector VecVal = GetAnotherLocation() - (AnotherPlayer->GetActorForwardVector() * 100.f);
 		SetActorLocation(VecVal);
 
@@ -583,13 +522,13 @@ void ANPlayer::SideStep() {
 		SetActorRotation(RotateVal);
 		ClientSideStep(RotateVal);
 		SideStepCnt--;
-		GetCurAttackComp()->ResetAll();
+		GetAttackManager()->ResetAll();
 		
 		// Particle & Reset Chacra..
 		if(SideStepParticle) {
-			GetCurChacraComp()->ResetChacraCnt(EChacraActions::ECA_None,false);
-			GetCurChacraComp()->ServerDestroyCurParticle();
-			GetCurChacraComp()->SpawnCurParticle(SideStepParticle);
+			GetChacraManager()->ResetChacraCnt(EChacraActions::ECA_None,false);
+			GetChacraManager()->ServerDestroyCurParticle();
+			GetChacraManager()->SpawnCurParticle(SideStepParticle);
 		}
 
 		//Update Widget
@@ -619,51 +558,36 @@ void ANPlayer::RecoverSideStepCnt() {
 		GetWorld()->GetTimerManager().SetTimer(SideStepHandle, this, &ANPlayer::RecoverSideStepCnt, 3.f, false);
 	}
 }
-void ANPlayer::SetGravity(float val) {
+void ANPlayer::SetGravity(float val, bool bSetAll) {
 	GravityVal = val;
 	isGravityDone = false;
+	if (bSetAll) {
+		AnotherPlayer->GravityVal = val;
+		AnotherPlayer->isGravityDone = false;
+	}
 
-	ServerSetGravity(val);
+	ServerSetGravity(val, bSetAll);
 }
-void ANPlayer::MultiSetGravity_Implementation(float val) {
+void ANPlayer::MultiSetGravity_Implementation(float val, bool bSetAll) {
 	GravityVal = val;
 	isGravityDone = false;
-}
-bool ANPlayer::MultiSetGravity_Validate(float val) {
-	return true;
-}
-void ANPlayer::ServerSetGravity_Implementation(float val) {
-	MultiSetGravity(val);
-}
-bool ANPlayer::ServerSetGravity_Validate(float val) {
-	return true;
-}
-void ANPlayer::SetAllGravity(float val) {
-	GravityVal = val;
-	AnotherPlayer->GravityVal = val;
-	isGravityDone = false;
-	AnotherPlayer->isGravityDone = false;
+	if (bSetAll) {
+		AnotherPlayer->GravityVal = val;
+		AnotherPlayer->isGravityDone = false;
 
-	ServerSetAllGravity();
-}
-void ANPlayer::MultiSetAllGravity_Implementation(float val) {
-	GravityVal = val;
-	AnotherPlayer->GravityVal = val;
-	isGravityDone = false;
-	AnotherPlayer->isGravityDone = false;
-
-	if (GravityVal != 1.f) {
-		FVector TmpVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100);
-		SetActorLocation(TmpVec);
+		if (GravityVal != 1.f) {
+			FVector TmpVec = AnotherPlayer->GetActorLocation() + (AnotherPlayer->GetActorForwardVector() * 100);
+			SetActorLocation(TmpVec);
+		}
 	}
 }
-bool ANPlayer::MultiSetAllGravity_Validate(float val) {
+bool ANPlayer::MultiSetGravity_Validate(float val, bool bSetAll) {
 	return true;
 }
-void ANPlayer::ServerSetAllGravity_Implementation(float val) {
-	MultiSetAllGravity(val);
+void ANPlayer::ServerSetGravity_Implementation(float val, bool bSetAll) {
+	MultiSetGravity(val, bSetAll);
 }
-bool ANPlayer::ServerSetAllGravity_Validate(float val) {
+bool ANPlayer::ServerSetGravity_Validate(float val, bool bSetAll) {
 	return true;
 }
 void ANPlayer::EndGravity() {
@@ -671,7 +595,7 @@ void ANPlayer::EndGravity() {
 	isGravityDone = false;
 }
 void ANPlayer::UpdateGravity() {
-	//if (!isGravityDone && GravityVal != GetCharacterMovement()->GravityScale) {
+	// Set Gravity...!
 	if (!isGravityDone) {
 		GetCharacterMovement()->GravityScale = GravityVal;
 		SetPlayerCondition(EPlayerCondition::EPC_Idle);
@@ -686,18 +610,18 @@ void ANPlayer::UpdateGravity() {
 }
 void ANPlayer::ThrowStar() {
 	bool bIsChacraThrow = false;
-	if (GetCurChacraComp()->GetChacraCnt() >= 1) {
-		GetCurChacraComp()->ResetChacraCnt(EChacraActions::ECA_NinjaStar);
+	if (GetChacraManager()->GetChacraCnt() >= 1) {
+		GetChacraManager()->ResetChacraCnt(EChacraActions::ECA_NinjaStar);
 		bIsChacraThrow = true;
 	}
-	CurAttackComp->ThrowNinjaStar(bIsChacraThrow);
+	AttackManager->ThrowNinjaStar(bIsChacraThrow);
 }
 void ANPlayer::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >& OutLifetimeProps) const {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(ANPlayer, CurrentWeapon);
-	DOREPLIFETIME(ANPlayer, bIsDoubleJump);
+	DOREPLIFETIME_CONDITION(ANPlayer, bIsDoubleJump, COND_OwnerOnly);
 	DOREPLIFETIME(ANPlayer, PlayerCondition);
-	DOREPLIFETIME(ANPlayer, SideStepCnt);
-	DOREPLIFETIME(ANPlayer, AnotherPlayer);
+	DOREPLIFETIME_CONDITION(ANPlayer, SideStepCnt, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(ANPlayer, AnotherPlayer, COND_OwnerOnly);
 }

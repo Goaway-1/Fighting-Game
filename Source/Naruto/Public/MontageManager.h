@@ -13,14 +13,10 @@ protected:
 	virtual void BeginPlay() override;
 
 protected:
-	UPROPERTY()
 	UAnimInstance* MainAnimInstance;
 
-	UPROPERTY()
-	class ANPlayer* CurOwner;
-
 public:
-	FORCEINLINE void SetInit(ANPlayer* player, UAnimInstance* AnimInst) { CurOwner = player; MainAnimInstance = AnimInst; }
+	FORCEINLINE void SetInit(UAnimInstance* AnimInst) { MainAnimInstance = AnimInst; }
 
 	UMontageManager();
 
@@ -33,6 +29,13 @@ public:
 	UFUNCTION()
 	FORCEINLINE bool IsMontagePlaying(UAnimMontage* Montage) { return (MainAnimInstance->Montage_IsPlaying(Montage)) ? true:false ; }
 
+	/**
+	* Functions that process animation
+	* @param Mongtage   Animation want to run..
+	* @param PlayRate   Animation PlayRate..
+	* @param Condition  Current Player's Condition (EPlayerCondtiion)
+	* @param idx        Attack Count Index..  
+	*/
 	UFUNCTION()
 	void PlayNetworkMontage(UAnimMontage* Mongtage, float PlayRate, EPlayerCondition Condition, int idx = 0);
 
@@ -55,11 +58,9 @@ private:
 	UFUNCTION(BlueprintCallable)
 	void SetActionMontage(bool btype);
 
+	FAttackMontageStruct ActionMontage;
 protected:
 	/** Montage List */
 	UPROPERTY(EditDefaultsOnly, Category = "AttackMontage")
 	TArray<FAttackMontageStruct> ActionMontages;
-
-	UPROPERTY()
-	FAttackMontageStruct ActionMontage;
 };

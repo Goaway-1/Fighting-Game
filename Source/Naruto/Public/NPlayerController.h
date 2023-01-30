@@ -4,6 +4,7 @@
 #include "GameFramework/PlayerController.h"
 #include "NPlayerController.generated.h"
 
+/** Widget State... */
 UENUM(BlueprintType)
 enum class EWidgetState : uint8 {
 	EWS_Health				UMETA(DisplayName = "Health"),
@@ -23,34 +24,28 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 
-public:
-	UPROPERTY()
+protected:
 	class ANPlayer* OwnerPlayer;
-
-	UPROPERTY(VisibleAnywhere, Category = "Widget")
 	class UUserWidget* MainWidget;
 
-	UPROPERTY(VisibleAnywhere, Category = "Widget")
-	class UCutSceneWidget* CutSceneWidget;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
+	UPROPERTY(EditAnywhere, Category = "Widget")
 	TSubclassOf<class UUserWidget> MainWidgetClass;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Widget")
-	TSubclassOf<class UUserWidget> CutSceneWidgetClass;
-	
-protected:
-	UPROPERTY()
+#pragma region CUTSCENE
+private:
+	class UCutSceneWidget* CutSceneWidget;
 	class UAnimMontage* EndMongtage;
 
+protected:
+	UPROPERTY(EditAnywhere, Category = "Widget")
+	TSubclassOf<class UUserWidget> CutSceneWidgetClass;
 public:
-	UFUNCTION()
 	void PlayCutScene(UMediaSource* Source, UAnimMontage* Mongtage,float MediaLength);		// Play Cut Scene in Widget : IN LOCAL
 	
-	UFUNCTION()
 	void EndCutScene();																		// Play  End Montage each Player's
+#pragma endregion
 
-#pragma region WIDGET & GAMEMODE
+#pragma region WIDGET
 private:
 	TArray<class UPlayerStateWidget*> HealthWidgets;
 	TArray<class UPlayerStateWidget*> ChacraWidgets;
@@ -59,32 +54,33 @@ private:
 	class UTextBlock* MiddleScreenText;
 	class UTextBlock* RoundTimerText;
 
-	class ANGameMode* CurGameMode;
-	bool bIsRoundStart;
-
 	UFUNCTION(Client, Reliable)
 	void UpdateWidget(int idx, EWidgetState State, float value);			// Update Widget Only Client
 		
 	UFUNCTION(Client, Reliable)
 	void ResetWidget();														// INIT Widget
-
-	// Start Round..
-	// time : GameMode Time, text : GameMode State, bisForce : custom...
-	UFUNCTION(Client, Reliable)
-	void SetRoundInfo(int time, const FString& text, bool bIsForce = false);		
-
 public:
 	UFUNCTION(Server, Reliable, WithValidation)
-	void SetWidget(const EWidgetState State);								// Some Player State Changed..
-
-	FORCEINLINE bool GetIsRoundStart() {return bIsRoundStart;}
-
-	UFUNCTION()
-	void RequestRoundEnd();													// Request Restart Round..
-
-	UFUNCTION()
-	void RequestGameOver();													// Request Game Over.
+	void SetWidget(const EWidgetState State);								// Set Widget Value when Some Player State Changed..
 #pragma endregion
 
+#pragma region GAMEMODE
+	class ANGameMode* CurGameMode;
+	bool bIsRoundStart;
 
+	/** 
+	* Set Round Info...
+	* @param time			GameMode Time
+	* @param text			GameMode State
+	* @param bisForce		Chanage Force
+	*/
+	UFUNCTION(Client, Reliable)
+	void SetRoundInfo(int time, const FString& text, bool bIsForce = false);	
+
+public:
+	FORCEINLINE bool GetIsRoundStart() {return bIsRoundStart;}
+
+	void RequestRoundEnd();													// Request Restart Round..
+	void RequestGameOver();													// Request Game Over.
+#pragma endregion
 };

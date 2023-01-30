@@ -5,6 +5,7 @@
 #include "AttackStruct.h"
 #include "NPlayer.generated.h"
 
+/** Current Player Condition(State) */
 UENUM(BlueprintType)
 enum class EPlayerCondition : uint8 {
 	EPC_Idle			UMETA(DisplayName = "Idle"),
@@ -26,7 +27,7 @@ enum class EPlayerCondition : uint8 {
 	EPC_Grap			UMETA(DisplayName = "Grap"),	
 	EPC_Skill1			UMETA(DisplayName = "Skill1"),
 	EPC_Skill2			UMETA(DisplayName = "Skill2"),
-	EPC_CantMove		UMETA(DisplayName = "CantMove"),	//CutScene 
+	EPC_CantMove		UMETA(DisplayName = "CantMove"),	 
 	EPC_Dead			UMETA(DisplayName = "Dead")	
 };
 
@@ -48,30 +49,19 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "InitSetting")
 	TSubclassOf<AActor> CameraManagerClass;
 
+private:
 	class ANCameraManager* CameraManager;
-
 	class ANPlayerController* MainPlayerController;
-
 	class ANPlayerState* MainPlayerState;
 
-	ANCameraManager* TargetCamera;
-
 public:
-	UFUNCTION()
 	FORCEINLINE ANPlayerController* GetMainController() { return MainPlayerController;}
 
-	FString GetEnumToString(EPlayerCondition value);
-
-protected:
-	//UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
-	//class UPlayerCameraComponent* PlayerCameraComp;
 #pragma region PLAYERCONDITION
 public:
 	UFUNCTION(BlueprintCallable)
 	FORCEINLINE EPlayerCondition GetPlayerCondition() { return PlayerCondition; }
 
-	// @TODO : ���� ������ ���� �ӽù����̱⿡ �����ʿ�
-	//UFUNCTION(BlueprintCallable)
 	UFUNCTION(BlueprintCallable,Client, Reliable)
 	void SetPlayerCondition(EPlayerCondition NewCondition);		
 
@@ -96,28 +86,20 @@ protected:
 	void MoveRight(float Value);
 
 	/* Inpressed Keys */
-	UPROPERTY(VisibleAnywhere, Category = "Movement")
 	EKeyUpDown Key_UD;
-
-	UPROPERTY(VisibleAnywhere, Category = "Movement")
 	EKeyLeftRight Key_LR;
 
-	/* Another Player's Distance */
-	double AP_Distance;
-
 	/* Jump */
+	const double JumpMovementForce = 1000.f;
+
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = "Movement|Jump")
 	bool bIsDoubleJump;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Movement|Jump")
-	float JumpMovementForce;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerJump();
 
 	FORCEINLINE void SetKeyUpDown(EKeyUpDown newKey) { Key_UD = newKey; }
 	FORCEINLINE void SetKeyLeftRight(EKeyLeftRight newKey) { Key_LR = newKey; }
-
 	FORCEINLINE EKeyUpDown GetKeyUpDown() { return Key_UD; }
 	FORCEINLINE EKeyLeftRight GetKeyLeftRight() { return Key_LR; }
 
@@ -129,21 +111,19 @@ public:
 
 #pragma region CHACRADASH
 protected:
-	double ChacraDashForce = 5000.f;
-	double ChacraDashStopDis = 150.f;
+	double AP_Distance;								// Distance Between Another Player
+	const double ChacraDashForce = 5000.f;			
+	const double ChacraDashStopDis = 150.f;			// If below this distance, ChacraDash stop
 
 	UPROPERTY()
 	FTimerHandle StopChacraDashHandle;
 
 protected:
-	UFUNCTION()
-	void AutoChacraDash(float DeltaTime);
-
-	UFUNCTION()
+	void ChacraDash();
 	void StopChacraDash();
 
 	UFUNCTION()
-	void ChacraDash();
+	void AutoChacraDash(float DeltaTime);			// Dash if Player Condition is Dash...
 #pragma endregion
 
 #pragma region SIDESTEP
@@ -151,19 +131,19 @@ protected:
 	UPROPERTY(Replicated, VisibleAnywhere)
 	int8 SideStepCnt = 4;
 
-	int8 SideStepMaxCnt = 4;
+	const int8 SideStepMaxCnt = 4;
 
 	UPROPERTY()
 	FTimerHandle SideStepHandle;
 
 	UPROPERTY(EditDefaultsOnly, Category = "SideStep | Particle")
-	class UParticleSystem* SideStepParticle = nullptr;    // Particle.. 
-
-	UFUNCTION()
-	void SideStep();
+	class UParticleSystem* SideStepParticle = nullptr;    
 
 	UFUNCTION()
 	void RecoverSideStepCnt();							// Recover Side Step's Count (Timer)
+
+	/** Start SideStep */
+	void SideStep();
 	
 	UFUNCTION(Client, Reliable)
 	void ClientSideStep(FRotator rot);					// For Client Rotation
@@ -175,38 +155,31 @@ protected:
 
 #pragma region WEAPON
 protected:
-	/* Weapon */
+	/* Weapon & AttackManager */
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TSubclassOf<AActor> StarterWeaponClass;
 
 	UPROPERTY(Replicated, VisibleDefaultsOnly, BlueprintReadWrite,Category = "Weapon")
 	class ANWeapon* CurrentWeapon;
 
-	UPROPERTY(VisibleDefaultsOnly, Category = "Weapon")
+	UPROPERTY(BlueprintReadOnly)
+	class UAttackManager* AttackManager;
+
 	FName WeaponAttachSocketName;
 
 	void SetWeapon();
-
-	/** Attack */
 	void Attack();
-
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly,  Category = "Attack")
-	class UAttackActorComponent* CurAttackComp;
-
 public:
 	UFUNCTION()
-	FORCEINLINE UAttackActorComponent* GetCurAttackComp() {return CurAttackComp;}
+	FORCEINLINE UAttackManager* GetAttackManager() {return AttackManager;}
 
 #pragma endregion
 
 #pragma region Chacra
 protected:
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Chacra")
-	class UChacraActorComponent* CurChacraComp;
-
+	class UChacraManager* ChacraManager;
 	float ChacraPressedTime;							// The time when Chacra pressed
 	const float ChacraChargingSec = 0.4f;				// The time it take to Charging
-
 	bool bisCharing = false;							// Check Charging 
 
 	void StartChacra();
@@ -214,7 +187,7 @@ protected:
 	void EndChacra();
 public:
 	UFUNCTION()
-	FORCEINLINE UChacraActorComponent* GetCurChacraComp() { return CurChacraComp; }
+	FORCEINLINE UChacraManager* GetChacraManager() { return ChacraManager; }
 #pragma endregion
 
 #pragma region CHECK_ANOTHER_ACTOR
@@ -225,7 +198,7 @@ protected:
 	double AutoRotDistance = 450.f;			// Can Attack Min Distance
 	FVector DirectionVec;
 
-	void SetAnotherPlayer();				// Get Another Playe
+	void SetAnotherPlayer();				// Get Another Player
 public:
 	FORCEINLINE FVector GetAnotherLocation() { return AnotherPlayer->GetActorLocation(); }
 	FORCEINLINE bool IsAnotherPlayer() { return (AnotherPlayer) ? true: false; }
@@ -234,22 +207,18 @@ public:
 
 #pragma region MONTAGE
 protected:
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
+	UPROPERTY(BlueprintReadOnly)
 	class UMontageManager* MontageManager;
 
 public:
-	UFUNCTION()
 	FORCEINLINE UMontageManager* GetMontageManager() {return MontageManager;}
 #pragma endregion
 
 #pragma region BLOCK
 private:
-	const float BlockDegree = 0.5f;   // can block '-60 ~ 60 degree'
+	const float BlockDegree = 0.5f;					// can block '-60 ~ 60 degree'
 public:
-	UFUNCTION()
 	void PressBlock();
-
-	UFUNCTION()
 	void ReleaseBlock();
 #pragma endregion
 
@@ -259,53 +228,46 @@ public:
 	void ClientPlayScene(bool bisAttacker, int idx = 0);					// Play Scene IN Client
 #pragma endregion
 
-#pragma region AIRATTACK
+#pragma region GRAVITY
 protected:
 	UPROPERTY()
 	FTimerHandle GravityHandle;		          // Set Default Gravity
 
-	const float ResetGravityTime = 0.7f;    // Reset Time..
+	const float ResetGravityTime = 0.7f;      // Reset Gravity Time..
 
+	void UpdateGravity();					 // Check Gravity On/Off
 public:
-	/** Player Gravity ON */
-	UFUNCTION()
-	void SetGravity(float val = 0);						
-
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MultiSetGravity(float val = 0);						
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSetGravity(float val = 0);						
-
-	/** All Players Gravity ON */
-	UFUNCTION()
-	void SetAllGravity(float val = 0);						
-
-	UFUNCTION(NetMulticast, Reliable, WithValidation)
-	void MultiSetAllGravity(float val = 0);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerSetAllGravity(float val = 0);         
-
 	/** Grvaity Value.. */
 	float GravityVal = 1.f;
 	bool isGravityDone = false;
 
-	UFUNCTION()
-	void EndGravity();											// Gravity OFF
+	void EndGravity();											// Reset Gravity
 
-	void UpdateGravity();										// for Tick...
+	/**
+	* Player Gravity ON/OFF 
+	* @param val       Gravity Value
+	* @param bSetAll   Set Gravity to All Player or not 
+	*/
+	UFUNCTION()
+	void SetGravity(float val = 0, bool bSetAll = false);						
+
+protected:
+	UFUNCTION(NetMulticast, Reliable, WithValidation)
+	void MultiSetGravity(float val = 0, bool bSetAll = false);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerSetGravity(float val = 0, bool bSetAll = false);
+
 #pragma endregion
 
 #pragma region NINJA_STAR
 public:
-	UFUNCTION()
 	void ThrowStar();
 #pragma endregion
 
 #pragma region HEALTH
 protected:
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = "Montage")
+	UPROPERTY(BlueprintReadOnly)
 	class UHealthManager* HealthManager;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")
@@ -313,17 +275,23 @@ protected:
 
 	FDamageValue* AttackData;
 
-	UFUNCTION()
 	void DecreasedHealth(int8 DamageSize);						// if Hited
-
 public:
-	UFUNCTION()
 	FORCEINLINE UHealthManager* GetHealthManager() { return HealthManager; }
 
-	UFUNCTION()
+	/**
+	* Play Animation, Decreased Health, Set Condtion when is Player Hited 
+	* @param AttackerCondition     Attacker Condition..
+	* @param AttackCnt             Attacker Attack Count..
+	*/
 	void IsHited(EPlayerCondition AttackerCondition, int8 AttackCnt);
 
-	UFUNCTION()
+	/**
+	* Retrun Damage Acount on characteristics
+	* @param AttackerCondition     Attacker Condition..
+	* @param AttackCnt             Attacker Attack Count..
+	* @return					   Damage Acount..
+	*/
 	int GetDamageValue(EPlayerCondition AttackerCondition, int8 AttackCnt);
 #pragma endregion
 
@@ -335,6 +303,7 @@ public:
 
 #pragma region TESTMODE
 public:
+	/** To Use Player Condition... (FORCE) */
 	UPROPERTY(EditAnywhere, Category="TestMode")
 	bool bTestMode = false;
 
@@ -344,11 +313,8 @@ public:
 
 #pragma region ROUND
 public:
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Round")
 	int Score;					
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Round")
-	int CanRecoverCnt;			// Can Recover Count..
+	int CanRecoverCnt;			// number of Count that can be revived
 
 	UPROPERTY()
 	FTimerHandle RecoverHandle;

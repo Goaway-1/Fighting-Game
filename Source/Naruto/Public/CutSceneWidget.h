@@ -11,14 +11,12 @@ UCLASS(Abstract)
 class NARUTO_API UCutSceneWidget : public UUserWidget
 {
 	GENERATED_BODY()
-public:
-	virtual void NativeConstruct() override;
 
 protected:
 	UPROPERTY(meta = (BindWidget))
 	class UImage* VideoImage;
 
-	UPROPERTY(EditAnywhere, category="CutScene")
+	UPROPERTY(EditAnywhere, category = "CutScene")
 	class UMediaPlayer* MediaPlayer;
 
 	UPROPERTY()
