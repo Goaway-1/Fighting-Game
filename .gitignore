@@ -1,0 +1,7 @@
+Source/Naruto/Private/AttackActorComponent.cpp
+Source/Naruto/Private/ChacraActorComponent.cpp
+Source/Naruto/Private/PlayerCameraComponent.cpp
+
+Source/Naruto/Public/AttackActorComponent.h
+Source/Naruto/Public/ChacraActorComponent.h
+Source/Naruto/Public/PlayerCameraComponent.h
