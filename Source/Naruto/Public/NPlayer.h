@@ -162,7 +162,7 @@ protected:
 	UPROPERTY(Replicated, VisibleDefaultsOnly, BlueprintReadWrite,Category = "Weapon")
 	class ANWeapon* CurrentWeapon;
 
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	class UAttackManager* AttackManager;
 
 	FName WeaponAttachSocketName;
@@ -177,6 +177,7 @@ public:
 
 #pragma region Chacra
 protected:
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	class UChacraManager* ChacraManager;
 	float ChacraPressedTime;							// The time when Chacra pressed
 	const float ChacraChargingSec = 0.4f;				// The time it take to Charging
@@ -207,7 +208,7 @@ public:
 
 #pragma region MONTAGE
 protected:
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	class UMontageManager* MontageManager;
 
 public:
@@ -267,7 +268,7 @@ public:
 
 #pragma region HEALTH
 protected:
-	UPROPERTY(BlueprintReadOnly)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	class UHealthManager* HealthManager;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Damage")

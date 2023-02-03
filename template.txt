@@ -1,1 +1,1 @@
-Fix: Readme 수정, DevLog 추가
+Fix: 헤더 에러 수정
